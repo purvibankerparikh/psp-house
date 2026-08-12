@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>PSP Quick Log</title>
+<style>
+:root{
+  --paper:#F5F4F0; --surface:#FFFFFF; --ink:#181B1F; --muted:#71767E; --faint:#9AA0A6; --line:#E4E2DB;
+  --blue:#20548A; --blueSoft:#EAF1F8; --green:#2E7D57; --greenSoft:#E9F3EE; --amber:#B47612; --amberSoft:#FBF1DF;
+  --red:#B23A2E; --redSoft:#F8E9E7;
+}
+html,body{margin:0;padding:0;background:var(--paper);}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.psp { font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); min-height:100vh; max-width:520px; margin:0 auto;
+  position:relative; padding-bottom:32px; }
+.psp .num { font-variant-numeric: tabular-nums; font-feature-settings:"tnum";
+  font-family: ui-monospace,"SF Mono",Menlo,monospace; letter-spacing:-.02em; }
+.psp button { font-family:inherit; cursor:pointer; border:none; background:none; }
+.psp input, .psp select, .psp textarea { font-family:inherit; font-size:16px; }
+.topbar { position:sticky; top:0; z-index:20; background:var(--paper);
+  padding:14px 18px 10px; border-bottom:1px solid var(--line); }
+.topbar .kick { font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue); font-weight:700; }
+.topbar h1 { margin:2px 0 0; font-size:20px; font-weight:700; letter-spacing:-.01em; }
+.wrap { padding:16px 16px 4px; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; }
+.card + .card { margin-top:12px; }
+.row { display:flex; align-items:center; gap:10px; }
+.between { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.muted { color:var(--muted); }
+.tiny { font-size:11px; }
+.label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-weight:600; }
+.statGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.stat{ background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+.stat .k{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-weight:600; }
+.stat .v{ font-size:17px; font-weight:700; margin-top:3px; }
+.field { margin-top:14px; }
+.field > .label { display:block; margin-bottom:6px; }
+.control { width:100%; padding:12px 12px; border:1px solid var(--line); border-radius:12px;
+  background:var(--surface); color:var(--ink); -webkit-appearance:none; appearance:none; }
+.control:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blueSoft); }
+select.control { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2371767E' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 14px center; padding-right:34px; }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.btn { width:100%; padding:15px; border-radius:14px; font-size:16px; font-weight:700;
+  background:var(--blue); color:#fff; display:flex; align-items:center; justify-content:center; gap:8px; }
+.btn:disabled { background:var(--line); color:var(--faint); }
+.btn.ghost { background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+.warn { border-radius:12px; padding:11px 12px; font-size:13px; display:flex; gap:9px; align-items:flex-start; line-height:1.35; margin-top:12px; }
+.led { padding:11px 0; border-top:1px solid var(--line); }
+.led:first-child { border-top:none; }
+.linkbtn{ color:var(--blue); font-weight:700; font-size:13px; }
+.empty { text-align:center; padding:24px 10px; color:var(--muted); font-size:13px; }
+.pill { font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; letter-spacing:.02em; }
+.tabSeg{ display:flex; gap:6px; margin-top:12px; }
+.tabSeg button{ flex:1; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--surface);
+  color:var(--muted); font-size:14px; font-weight:700; }
+.tabSeg button.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.errBox{background:#fff3f2;border:1px solid #f3c8c3;color:#8a2a20;border-radius:12px;padding:14px;margin:16px;font-size:13px;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<div id="app" class="psp"></div>
+
+<script>
+/* ============================================================
+   PSP QUICK LOG — lightweight two-tab entry tool
+   Tab 1: Payment   Tab 2: Vendors & Quotes
+   Shares the SAME Google Sheet backend as the full PSP House
+   Tracker. No framework, one file.
+   ============================================================ */
+"use strict";
+
+const STORAGE_KEY = "psp_house_quicklog_v1";
+
+const FLOORS = [
+  { id:"ground", name:"Ground Floor", code:"GF",
+    rooms:["Vestibule","Foyer","Puja","Living","Dining","Kitchen","Store","Toilet","Shower",
+      "Bedroom 01","Dress (BR 01)","Powder Toilet","Deck","Outdoor Kitchen","Parking",
+      "Servant Toilet","Store (Landing)","Rear Deck","Garden","Ramp","Lift"] },
+  { id:"first", name:"First Floor", code:"1F",
+    rooms:["Bedroom 02","Dress (BR 02)","Toilet (BR 02)","Bedroom 03","Dress (BR 03)","Toilet (BR 03)",
+      "Bedroom 04","Dress (BR 04)","Study / Office","Linen Store","Balcony 1","Balcony 2",
+      "Common Toilet","Shower","Passage","Lift"] },
+  { id:"second", name:"Second Floor", code:"2F",
+    rooms:["Gym / Yoga","Toilet","Terrace (Large)","Terrace (2)","Balcony","Store","Store (Balcony)",
+      "Pantry","Passage","Lift"] },
+  { id:"third", name:"Third Floor", code:"3F",
+    rooms:["OHT Store","Terrace","Pergola","Passage","Lift"] },
+  { id:"ohwt", name:"OHWT / Terrace", code:"OH",
+    rooms:["Water Tank Room","Servant Quarter","Garden","Passage"] },
+  { id:"common", name:"Whole House / Common", code:"CO",
+    rooms:["Structure & RCC","Brickwork","Plaster","Waterproofing","Plumbing & Sanitary","Electrical",
+      "Flooring & Tiling","Kitchen Fitout","Wardrobes / Carpentry","Painting","Doors & Windows",
+      "Railings & Fabrication","False Ceiling","Elevation / Facade","Lift Installation","HVAC / AC",
+      "Solar / Water Heater","Boundary Wall","Main Gate","Landscaping","Water Tanks","Drainage",
+      "Site Development","Professional Fees","Statutory / Permissions","Miscellaneous"] },
+];
+const TRADES = ["Civil / RCC","Masonry","Plaster","Waterproofing","Plumbing & Sanitary","Electrical",
+  "Flooring & Tiles","Kitchen","Carpentry / Wardrobes","Painting","Doors & Windows","Fabrication / Railing",
+  "False Ceiling","Facade / Elevation","Lift","HVAC","Solar","Landscaping","Boundary / Gate",
+  "Professional Fees","Statutory","Labour Charges","Material Purchase","Miscellaneous"];
+
+const DEFAULT_MODES = [
+  {name:"UPI", bank:true}, {name:"Bank Transfer", bank:true}, {name:"Cheque", bank:true},
+  {name:"Others", bank:false}, {name:"Card", bank:false}
+];
+const DEFAULT_PTYPES = ["Advance","Against Invoice","Against Milestone","Against Retention"];
+const DEFAULT_BANK_ACCOUNTS = ["skp_main_918","psp_main_1236","construction_3006","overdraft_1238"];
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function fmt(n, dp){ dp=dp||0; const v=Number(n)||0; return v.toLocaleString("en-IN",{minimumFractionDigits:dp,maximumFractionDigits:dp}); }
+function rupee(n, dp){ return "₹" + fmt(n, dp); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function prettyDate(iso){ const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); }
+
+function seed(){
+  return {
+    settings: { syncUrl:"", bankAccounts: DEFAULT_BANK_ACCOUNTS.slice(),
+      paymentModes: DEFAULT_MODES.map(m=>({...m})), paymentTypes: DEFAULT_PTYPES.slice() },
+    vendors: [],
+    payments: [],
+  };
+}
+function settingsForCloud(s){
+  const out = Object.assign({}, s);
+  out.bankAccounts = JSON.stringify(s.bankAccounts||[]);
+  out.paymentModes = JSON.stringify(s.paymentModes||[]);
+  out.paymentTypes = JSON.stringify(s.paymentTypes||[]);
+  return out;
+}
+function settingsFromCloud(s){
+  const out = Object.assign({}, s||{});
+  try{ out.bankAccounts = JSON.parse((s&&s.bankAccounts)||"[]"); }catch(e){ out.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice(); }
+  try{ out.paymentModes = JSON.parse((s&&s.paymentModes)||"[]"); }catch(e){ out.paymentModes = DEFAULT_MODES.map(m=>({...m})); }
+  try{ out.paymentTypes = JSON.parse((s&&s.paymentTypes)||"[]"); }catch(e){ out.paymentTypes = DEFAULT_PTYPES.slice(); }
+  if (!out.bankAccounts.length) out.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice();
+  if (!out.paymentModes.length) out.paymentModes = DEFAULT_MODES.map(m=>({...m}));
+  if (!out.paymentTypes.length) out.paymentTypes = DEFAULT_PTYPES.slice();
+  return out;
+}
+async function cloudCall(url, action, payload){
+  const res = await fetch(url, {
+    method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify(Object.assign({action}, payload||{})), redirect:"follow"
+  });
+  if (!res.ok) throw new Error("Network " + res.status);
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
+let state = null, loaded = false;
+let ui = { tab:"pay", syncStatus:"idle", lastSynced:null };
+
+async function storageGet(key){
+  if (window.storage){
+    try{ const r = await window.storage.get(key, true); if (r && r.value) return r.value; }
+    catch(e){ /* not connected / first run */ }
+  }
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+async function storageSet(key, value){
+  if (window.storage){
+    try{ await window.storage.set(key, value, true); return; }catch(e){ /* fall through */ }
+  }
+  try{ localStorage.setItem(key, value); }catch(e){ console.error("save failed", e); }
+}
+async function loadState(){
+  let data = null;
+  try{ const raw = await storageGet(STORAGE_KEY); if (raw) data = JSON.parse(raw); }
+  catch(e){}
+  state = data || seed();
+  state.settings = state.settings || seed().settings;
+  if (!Array.isArray(state.settings.bankAccounts) || !state.settings.bankAccounts.length) state.settings.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice();
+  if (!Array.isArray(state.settings.paymentModes) || !state.settings.paymentModes.length) state.settings.paymentModes = DEFAULT_MODES.map(m=>({...m}));
+  if (!Array.isArray(state.settings.paymentTypes) || !state.settings.paymentTypes.length) state.settings.paymentTypes = DEFAULT_PTYPES.slice();
+  loaded = true;
+}
+async function saveState(){
+  await storageSet(STORAGE_KEY, JSON.stringify(state));
+}
+async function update(fn){ fn(state); await saveState(); render(); }
+
+function computeDerived(){
+  const paidByVendor = {};
+  let totalPaid = 0;
+  const today = todayISO();
+  let spentToday = 0;
+  for (const p of state.payments){
+    paidByVendor[p.vendorId] = (paidByVendor[p.vendorId]||0) + p.amount;
+    totalPaid += p.amount;
+    if (p.date===today) spentToday += p.amount;
+  }
+  const totalQuote = state.vendors.reduce((s,v)=>s+(v.quote||0),0);
+  const outstanding = state.vendors.reduce((s,v)=>{ const q=v.quote||0, pd=paidByVendor[v.id]||0; return s+Math.max(0,q-pd); },0);
+  return { paidByVendor, totalPaid, totalQuote, outstanding, spentToday };
+}
+
+function okSync(){ ui.syncStatus="ok"; ui.lastSynced=Date.now(); }
+async function pushVendors(url){
+  url = url || state.settings.syncUrl; if (!url) return;
+  ui.syncStatus="syncing"; refreshSyncLine();
+  try{ await cloudCall(url,"saveVendors",{vendors:state.vendors, settings:settingsForCloud(state.settings)}); okSync(); }
+  catch(e){ ui.syncStatus="error"; }
+  refreshSyncLine();
+}
+async function pushPayment(payment){
+  const url = state.settings.syncUrl; if (!url) return null;
+  ui.syncStatus="syncing"; refreshSyncLine();
+  try{ const res = await cloudCall(url,"addPayment",{payment}); okSync(); refreshSyncLine(); return res; }
+  catch(e){ ui.syncStatus="error"; refreshSyncLine(); return null; }
+}
+async function pullAll(url){
+  url = url || state.settings.syncUrl; if (!url) return;
+  ui.syncStatus="syncing"; refreshSyncLine();
+  try{
+    const cloud = await cloudCall(url,"load",{});
+    const cloudIds = new Set((cloud.payments||[]).map(p=>p.id));
+    const localOnly = state.payments.filter(p=>!cloudIds.has(p.id));
+    for (const p of localOnly) await cloudCall(url,"addPayment",{payment:p});
+    state.payments = [...(cloud.payments||[]), ...localOnly];
+    if (cloud.vendors) state.vendors = cloud.vendors;
+    state.settings = Object.assign({}, state.settings, settingsFromCloud(cloud.settings||{}), {syncUrl:url});
+    await saveState(); okSync(); render();
+  }catch(e){ ui.syncStatus="error"; refreshSyncLine(); }
+}
+async function connectCloud(rawUrl){
+  const url=(rawUrl||"").trim(); if(!url) return;
+  state.settings.syncUrl = url; await saveState();
+  await pushVendors(url); await pullAll(url); render();
+}
+function refreshSyncLine(){
+  const el = document.getElementById("syncLine"); if (!el) return;
+  el.textContent = syncLabelText(); el.style.color = syncLabelColor();
+}
+function syncLabelText(){
+  if (!state.settings.syncUrl) return "Not connected — data stays on this phone only.";
+  if (ui.syncStatus==="syncing") return "Syncing…";
+  if (ui.syncStatus==="error") return "Couldn't reach the sheet. Check the URL, then Sync now.";
+  if (ui.lastSynced) return "Synced ✓ " + new Date(ui.lastSynced).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"});
+  return "Connected.";
+}
+function syncLabelColor(){
+  if (ui.syncStatus==="error") return "var(--red)";
+  if (state.settings.syncUrl && ui.syncStatus==="ok") return "var(--green)";
+  return "var(--muted)";
+}
+function vendorStatus(paid, quote){
+  if (!quote) return { label:"No quote", color:"var(--faint)", soft:"#EFEEE9" };
+  const p = paid/quote;
+  if (p>1) return { label:"Over quote", color:"var(--red)", soft:"var(--redSoft)" };
+  if (p>=.9) return { label:"Near quote", color:"var(--amber)", soft:"var(--amberSoft)" };
+  return { label:"On track", color:"var(--green)", soft:"var(--greenSoft)" };
+}
+
+/* ============================ RENDER ============================ */
+function render(){
+  try{
+    const d = computeDerived();
+    const connected = !!state.settings.syncUrl;
+    let html = '<div class="topbar"><div class="kick">PSP House · Ahmedabad</div><h1>Quick Log</h1></div><div class="wrap">';
+
+    html += '<div class="card"><div class="statGrid">'+
+      stat("Total paid", rupee(d.totalPaid))+ stat("Outstanding", rupee(d.outstanding))+
+      stat("Spent today", rupee(d.spentToday))+ stat("Total quoted", rupee(d.totalQuote))+
+      '</div>'+
+      '<div class="tabSeg">'+
+      '<button data-tab="pay" class="'+(ui.tab==="pay"?"on":"")+'">Add Payment</button>'+
+      '<button data-tab="vendor" class="'+(ui.tab==="vendor"?"on":"")+'">Vendors & Quotes</button>'+
+      '</div></div>';
+
+    html += renderSync(connected);
+
+    if (ui.tab==="pay"){ html += renderPayForm(d); html += renderRecent(d); }
+    else { html += renderVendorTab(d); }
+
+    html += '</div>';
+    document.getElementById("app").innerHTML = html;
+
+    document.querySelectorAll("[data-tab]").forEach(b=>{
+      b.onclick = ()=>{ ui.tab = b.getAttribute("data-tab"); render(); };
+    });
+    attachSyncHandlers(connected);
+    if (ui.tab==="pay") attachPayHandlers(d);
+    else attachVendorHandlers(d);
+  }catch(err){
+    document.getElementById("app").innerHTML = '<div class="errBox">Something went wrong:\n\n'+esc(err.message||String(err))+'</div>';
+    console.error(err);
+  }
+}
+function stat(k,v){ return '<div class="stat"><div class="k">'+k+'</div><div class="v num">'+v+'</div></div>'; }
+
+function renderSync(connected){
+  if (connected){
+    return '<div class="card"><div class="between"><div class="tiny" style="font-weight:700">Cloud sync</div>'+
+      '<button class="linkbtn" id="syncNowBtn">Sync now</button></div>'+
+      '<div class="tiny" id="syncLine" style="margin-top:4px;font-weight:600;color:'+syncLabelColor()+'">'+syncLabelText()+'</div></div>';
+  }
+  return '<div class="card"><div class="tiny" style="font-weight:700;margin-bottom:8px">Connect to your Google Sheet</div>'+
+    '<div class="tiny muted" style="margin-bottom:10px">Use the same Web App URL from your PSP House Tracker setup — this tool shares the same data.</div>'+
+    '<input class="control" id="syncUrlInput" placeholder="https://script.google.com/…/exec" style="font-size:13px">'+
+    '<button class="btn" style="margin-top:10px" id="connectBtn">Connect</button>'+
+    '<div class="tiny" id="syncLine" style="margin-top:8px;font-weight:600;color:var(--muted)">Not connected — data stays on this phone only.</div></div>';
+}
+function attachSyncHandlers(connected){
+  if (connected){
+    document.getElementById("syncNowBtn").onclick = ()=> pullAll();
+  }else{
+    document.getElementById("connectBtn").onclick = ()=> connectCloud(document.getElementById("syncUrlInput").value);
+  }
+}
+
+/* ---------------------------- PAYMENT TAB ---------------------------- */
+function renderPayForm(d){
+  let html = '<div class="card"><div class="label" style="margin-bottom:10px">Add payment</div>';
+
+  if (state.vendors.length===0){
+    html += '<div class="empty">No agencies yet. <button class="linkbtn" id="goVendorTab" style="display:inline">Add one in Vendors & Quotes</button> first.</div></div>';
+    return html;
+  }
+
+  html += '<div class="field"><span class="label">Agency</span><select class="control" id="qVendorSel">'+
+    state.vendors.map(v=>'<option value="'+v.id+'">'+esc(v.name)+' — '+esc(v.trade)+'</option>').join("")+'</select></div>';
+
+  html += '<div class="field"><span class="label">Amount paid (₹)</span>'+
+    '<input class="control num" inputmode="decimal" id="qAmount" placeholder="0" style="font-size:22px;font-weight:700"></div>';
+  html += '<div id="qQuoteStatus" class="tiny num muted" style="margin-top:8px"></div>';
+  html += '<div id="qWarnings"></div>';
+
+  html += '<div class="field"><span class="label">Payment type</span><select class="control" id="qType">'+
+    state.settings.paymentTypes.map((t,i)=>'<option'+(i===0?" selected":"")+'>'+esc(t)+'</option>').join("")+'</select></div>';
+  html += '<div class="field"><span class="label">Invoice number <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
+    '<input class="control" id="qInvoiceNo" placeholder="e.g. INV-2026-014"></div>';
+
+  html += '<div class="field"><span class="label">Mode of payment</span><select class="control" id="qMode">'+
+    state.settings.paymentModes.map(m=>'<option>'+esc(m.name)+'</option>').join("")+'</select></div>';
+  html += '<div id="qBankWrap" style="display:none"></div>';
+
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Floor</span><select class="control" id="qFloor"><option value="">— none —</option>'+
+    FLOORS.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("")+'</select></div>'+
+    '<div><span class="label">Room / area</span><select class="control" id="qRoom" disabled><option value="">pick floor</option></select></div></div>';
+
+  html += '<div class="field"><span class="label">Note <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
+    '<input class="control" id="qNote" placeholder="e.g. 2nd slab steel, bill #142"></div>';
+
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Date</span><input class="control" type="date" id="qDate" value="'+todayISO()+'"></div><div></div></div>';
+
+  html += '<button class="btn" style="margin-top:20px" id="qSaveBtn">Record payment</button></div>';
+  return html;
+}
+
+function modeRequiresBank(name){
+  const m = state.settings.paymentModes.find(x=>x.name===name);
+  return !!(m && m.bank);
+}
+function updateBankField(){
+  const wrap = document.getElementById("qBankWrap");
+  const modeSel = document.getElementById("qMode");
+  const mode = modeSel ? modeSel.value : "";
+  if (!modeRequiresBank(mode)){ wrap.style.display="none"; wrap.innerHTML=""; return; }
+  const accounts = state.settings.bankAccounts||[];
+  wrap.style.display="block";
+  if (accounts.length===0){
+    wrap.innerHTML = '<div class="field"><span class="label">Bank account</span><div class="tiny muted">No bank accounts saved — add one via the full PSP House Tracker app first.</div></div>';
+  }else{
+    wrap.innerHTML = '<div class="field"><span class="label">Bank account</span>'+
+      '<select class="control" id="qBankSel"><option value="">— choose account —</option>'+
+      accounts.map(a=>'<option>'+esc(a)+'</option>').join("")+'</select></div>';
+    document.getElementById("qBankSel").addEventListener("change", updateWarnings);
+  }
+}
+function updateWarnings(){
+  const vendorSel = document.getElementById("qVendorSel");
+  if (!vendorSel) return null;
+  const vendor = state.vendors.find(v=>v.id===vendorSel.value);
+  const amt = Number(document.getElementById("qAmount").value)||0;
+  const mode = document.getElementById("qMode").value;
+  const statusEl = document.getElementById("qQuoteStatus");
+  const warnEl = document.getElementById("qWarnings");
+  const saveBtn = document.getElementById("qSaveBtn");
+
+  let overQuote = false, overBy = 0;
+  if (vendor){
+    const d = computeDerived();
+    const paid = d.paidByVendor[vendor.id]||0;
+    if (vendor.quote>0){
+      statusEl.textContent = "Paid so far "+rupee(paid)+" of "+rupee(vendor.quote)+" · "+rupee(Math.max(0,vendor.quote-paid))+" left against quote";
+      overBy = (paid+amt) - vendor.quote;
+      overQuote = overBy > 0.5;
+    } else statusEl.textContent = "";
+  } else statusEl.textContent = "";
+
+  const needsBank = modeRequiresBank(mode);
+  const bankSel = document.getElementById("qBankSel");
+  const bankMissing = needsBank && (!bankSel || !bankSel.value);
+
+  let warn = "";
+  if (overQuote){
+    warn += '<div class="warn" style="background:var(--redSoft);color:var(--red)">This is '+rupee(overBy)+' <b>over the quote</b>. Blocked — update the quote in the Vendors & Quotes tab first.</div>';
+  } else if (bankMissing){
+    warn += '<div class="warn" style="background:var(--amberSoft);color:var(--amber)">Pick which bank account this '+esc(mode)+' payment is going out from.</div>';
+  }
+  warnEl.innerHTML = warn;
+
+  const blocked = !vendor || amt<=0 || overQuote || bankMissing;
+  saveBtn.disabled = blocked;
+  saveBtn.textContent = overQuote ? "Over quote — blocked" : (bankMissing ? "Choose a bank account" : "Record "+(amt>0?rupee(amt):"payment"));
+  return { vendor, amt, mode, blocked, bankAccount: bankSel?bankSel.value:"" };
+}
+
+function renderRecent(d){
+  const pays = [...state.payments].sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0,20);
+  let html = '<div class="card"><div class="label" style="margin-bottom:6px">Recent payments</div>';
+  if (pays.length===0) html += '<div class="empty">No payments logged yet.</div>';
+  pays.forEach(p=>{
+    const v = state.vendors.find(x=>x.id===p.vendorId);
+    const fl = FLOORS.find(f=>f.id===p.floor);
+    html += '<div class="led"><div class="between"><div style="min-width:0">'+
+      '<div style="font-weight:600;font-size:14px">'+esc(v?v.name:"—")+'</div>'+
+      '<div class="tiny muted">'+prettyDate(p.date)+' · '+esc(p.type)+' · '+esc(p.mode)+
+      (p.bankAccount?" ("+esc(p.bankAccount)+")":"")+(fl?" · "+fl.code:"")+(p.room?" / "+esc(p.room):"")+
+      (p.invoiceNumber?" · Inv# "+esc(p.invoiceNumber):"")+'</div></div>'+
+      '<div class="num" style="font-weight:700">'+rupee(p.amount)+'</div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function attachPayHandlers(d){
+  const goVendorTab = document.getElementById("goVendorTab");
+  if (goVendorTab){ goVendorTab.onclick = ()=>{ ui.tab="vendor"; render(); }; return; }
+
+  document.getElementById("qMode").addEventListener("change", ()=>{ updateBankField(); updateWarnings(); });
+  updateBankField();
+
+  const floorSel = document.getElementById("qFloor"), roomSel = document.getElementById("qRoom");
+  floorSel.onchange = ()=>{
+    const f = FLOORS.find(x=>x.id===floorSel.value);
+    if (!f){ roomSel.disabled=true; roomSel.innerHTML='<option value="">pick floor</option>'; }
+    else{ roomSel.disabled=false; roomSel.innerHTML='<option value="">— general —</option>'+f.rooms.map(r=>'<option>'+esc(r)+'</option>').join(""); }
+  };
+
+  ["qVendorSel","qAmount"].forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener("input", updateWarnings);
+    el.addEventListener("change", updateWarnings);
+  });
+  updateWarnings();
+
+  document.getElementById("qSaveBtn").onclick = async ()=>{
+    const check = updateWarnings();
+    if (!check || check.blocked) return;
+    const id = uid();
+    const payment = {
+      id, vendorId: check.vendor.id, amount: check.amt, mode: check.mode,
+      bankAccount: modeRequiresBank(check.mode) ? check.bankAccount : "",
+      type: document.getElementById("qType").value,
+      invoiceNumber: document.getElementById("qInvoiceNo").value.trim(),
+      floor: document.getElementById("qFloor").value,
+      room: document.getElementById("qRoom").value,
+      work: "Both",
+      gst: 0,
+      date: document.getElementById("qDate").value || todayISO(),
+      note: document.getElementById("qNote").value.trim(),
+      billRef: ""
+    };
+    state.payments.push(payment);
+    await saveState();
+    render();
+    if (state.settings.syncUrl) await pushPayment(payment);
+  };
+}
+
+/* ------------------------- VENDORS & QUOTES TAB ------------------------- */
+function renderVendorTab(d){
+  let html = '<div class="card"><div class="label" style="margin-bottom:10px">Add new agency</div>'+
+    '<div class="field"><span class="label">Agency name</span><input class="control" id="naName" placeholder="e.g. Sharma Plumbing"></div>'+
+    '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Trade</span><select class="control" id="naTrade">'+TRADES.map(t=>'<option>'+esc(t)+'</option>').join("")+'</select></div>'+
+    '<div><span class="label">Quote (₹, optional)</span><input class="control num" inputmode="decimal" id="naQuote" placeholder="0"></div></div>'+
+    '<button class="btn" style="margin-top:16px" id="naSaveBtn">Add agency</button></div>';
+
+  html += '<div class="card"><div class="label" style="margin-bottom:10px">Update a quote</div>';
+  if (state.vendors.length===0){
+    html += '<div class="empty">Add an agency above first.</div></div>';
+  } else {
+    html += '<div class="field"><span class="label">Agency</span><select class="control" id="uqVendorSel">'+
+      state.vendors.map(v=>'<option value="'+v.id+'">'+esc(v.name)+'</option>').join("")+'</select></div>'+
+      '<div id="uqCurrent" class="tiny num muted" style="margin-top:8px"></div>'+
+      '<div class="field"><span class="label">New quote (₹)</span><input class="control num" inputmode="decimal" id="uqQuote" placeholder="0"></div>'+
+      '<div class="field"><span class="label">Reason <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
+      '<input class="control" id="uqNote" placeholder="e.g. added terrace waterproofing"></div>'+
+      '<button class="btn" style="margin-top:16px" id="uqSaveBtn">Save quote</button></div>';
+  }
+
+  html += '<div class="card"><div class="label" style="margin-bottom:6px">All agencies</div>';
+  if (state.vendors.length===0) html += '<div class="empty">None added yet.</div>';
+  state.vendors.forEach(v=>{
+    const paid = d.paidByVendor[v.id]||0;
+    const st = vendorStatus(paid, v.quote);
+    html += '<div class="led"><div class="between"><div><div style="font-weight:700;font-size:14px">'+esc(v.name)+'</div>'+
+      '<div class="tiny muted">'+esc(v.trade)+' · '+rupee(paid)+' paid'+(v.quote?" of "+rupee(v.quote):"")+'</div></div>'+
+      '<div class="pill" style="background:'+st.soft+';color:'+st.color+'">'+st.label+'</div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function attachVendorHandlers(d){
+  document.getElementById("naSaveBtn").onclick = async ()=>{
+    const name = document.getElementById("naName").value.trim(); if (!name) return;
+    const trade = document.getElementById("naTrade").value;
+    const quote = Number(document.getElementById("naQuote").value)||0;
+    await update(n=>{
+      n.vendors.push({ id:uid(), name, trade, quote, quoteHistory:[], advanceCapPct:10, retentionPct:5, gstPct:18, phone:"", note:"" });
+    });
+    pushVendors();
+  };
+
+  const uqSel = document.getElementById("uqVendorSel");
+  if (uqSel){
+    const showCurrent = ()=>{
+      const v = state.vendors.find(x=>x.id===uqSel.value);
+      document.getElementById("uqCurrent").textContent = v ? "Current quote: "+rupee(v.quote||0) : "";
+    };
+    uqSel.onchange = showCurrent;
+    showCurrent();
+
+    document.getElementById("uqSaveBtn").onclick = async ()=>{
+      const v = state.vendors.find(x=>x.id===uqSel.value); if (!v) return;
+      const newQuote = Number(document.getElementById("uqQuote").value)||0;
+      const note = document.getElementById("uqNote").value.trim();
+      if (newQuote<=0) return;
+      await update(n=>{
+        const vv = n.vendors.find(x=>x.id===v.id);
+        if (newQuote !== (vv.quote||0)){
+          vv.quoteHistory = vv.quoteHistory||[];
+          if ((vv.quote||0) > 0) vv.quoteHistory.unshift({ date: todayISO(), amount:newQuote, note: note||"Revised" });
+          vv.quote = newQuote;
+        }
+      });
+      pushVendors();
+    };
+  }
+}
+
+(async function init(){
+  await loadState();
+  render();
+  if (state.settings.syncUrl) pullAll();
+})();
+</script>
+</body>
+</html>

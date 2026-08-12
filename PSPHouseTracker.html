@@ -141,29 +141,16 @@ label.btn { display:flex; }
 
 const STORAGE_KEY = "psp_house_tracker_v1";
 
-/* When this file runs outside Claude (self-hosted on your own web address),
-   Claude's window.storage isn't present — fall back to the browser's own
-   localStorage so the app still remembers data and the sync URL on the device.
-   Inside Claude, window.storage already exists and this block is skipped. */
-if (typeof window !== "undefined" && !window.storage){
-  window.storage = {
-    get: async (key)=>{ const v = localStorage.getItem(key); return v==null ? null : { key, value:v }; },
-    set: async (key, value)=>{ localStorage.setItem(key, value); return { key, value }; },
-    delete: async (key)=>{ localStorage.removeItem(key); return { key, deleted:true }; },
-    list: async (prefix)=>{ const keys=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!prefix||k.indexOf(prefix)===0) keys.push(k);} return { keys }; }
-  };
-}
-
 /* ---------- structure from the working plan ---------- */
 const FLOORS = [
   { id:"ground", name:"Ground Floor", code:"GF", level:"+1050",
     rooms:["Vestibule","Foyer","Puja","Living","Dining","Kitchen","Store","Toilet","Shower",
-      "Parents BR","Parents Dress","Parents Bath","Deck","Outdoor Kitchen","Parking",
+      "Bedroom 01","Dress (BR 01)","Powder Toilet","Deck","Outdoor Kitchen","Parking",
       "Servant Toilet","Store (Landing)","Rear Deck","Garden","Ramp","Lift"] },
   { id:"first", name:"First Floor", code:"1F", level:"+5050",
-    rooms:["Master BR","Master Dress","Master Bath","Anaaya BR","Anaaya Dress","Anaaya Bath",
-      "Arnav BR","Arnav Dress","Arnav Bath","Study / Office","Linen Store","Balcony 1","Balcony 2",
-      "Shower","Passage","Lift"] },
+    rooms:["Bedroom 02","Dress (BR 02)","Toilet (BR 02)","Bedroom 03","Dress (BR 03)","Toilet (BR 03)",
+      "Bedroom 04","Dress (BR 04)","Study / Office","Linen Store","Balcony 1","Balcony 2",
+      "Common Toilet","Shower","Passage","Lift"] },
   { id:"second", name:"Second Floor", code:"2F", level:"+8400",
     rooms:["Gym / Yoga","Toilet","Terrace (Large)","Terrace (2)","Balcony","Store","Store (Balcony)",
       "Pantry","Passage","Lift"] },
@@ -242,7 +229,12 @@ function seed(){
     settings: { budget: 0, contingencyPct: 12, currency:"INR", syncUrl:"",
       bankAccounts: DEFAULT_BANK_ACCOUNTS.slice(), paymentModes: DEFAULT_MODES.map(m=>({...m})),
       paymentTypes: DEFAULT_PTYPES.slice() },
-    vendors: [],
+    vendors: [
+      { id:uid(), name:"Studio Saransh", trade:"Professional Fees", quote:0, quoteHistory:[],
+        advanceCapPct:20, retentionPct:0, gstPct:18, phone:"+91 92279 31416", note:"Architect" },
+      { id:uid(), name:"Main Contractor", trade:"Civil / RCC", quote:0, quoteHistory:[],
+        advanceCapPct:10, retentionPct:5, gstPct:18, phone:"", note:"" },
+    ],
     payments: [],
   };
 }
@@ -294,15 +286,30 @@ async function cloudCall(url, action, payload){
 let state = null;
 let loaded = false;
 let ui = { tab:"home", modal:null, vendorQuery:"", ledgerFloor:"", ledgerVendor:"",
-  syncStatus:"idle", lastSynced:null, payOverride:false, payReceipt:null, vendorQuoteDoc:null };
+  syncStatus:"idle", lastSynced:null, payOverride:false, payReceipt:null };
+
+/* Portable storage: uses Claude's window.storage when this runs inside a
+   Claude artifact, and falls back to plain localStorage everywhere else
+   (e.g. hosted on GitHub Pages) so the app works the same in both places. */
+async function storageGet(key){
+  if (window.storage){
+    try{ const r = await window.storage.get(key, true); if (r && r.value) return r.value; }
+    catch(e){ /* not connected / first run */ }
+  }
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+async function storageSet(key, value){
+  if (window.storage){
+    try{ await window.storage.set(key, value, true); return; }catch(e){ /* fall through */ }
+  }
+  try{ localStorage.setItem(key, value); }catch(e){ console.error("save failed", e); }
+}
 
 async function loadState(){
   let data = null;
   try{
-    if (window.storage){
-      const r = await window.storage.get(STORAGE_KEY, true);
-      if (r && r.value) data = JSON.parse(r.value);
-    }
+    const raw = await storageGet(STORAGE_KEY);
+    if (raw) data = JSON.parse(raw);
   }catch(e){ /* first run */ }
   state = data || seed();
   // backfill new settings for anyone who already had local data before these fields existed
@@ -316,8 +323,7 @@ async function loadState(){
   loaded = true;
 }
 async function saveState(){
-  try{ if (window.storage) await window.storage.set(STORAGE_KEY, JSON.stringify(state), true); }
-  catch(e){ console.error("save failed", e); }
+  await storageSet(STORAGE_KEY, JSON.stringify(state));
 }
 async function update(fn){
   fn(state);
@@ -513,7 +519,7 @@ function filteredVendorList(){
 }
 function renderVendorListItems(d){
   const list = filteredVendorList();
-  if (list.length===0) return '<div class="tiny muted" style="padding:6px 0">'+(ui.vendorQuery?"No agencies match.":"No agencies yet — add one below, or when recording a payment.")+'</div>';
+  if (list.length===0) return '<div class="tiny muted" style="padding:6px 0">No agencies match.</div>';
   return list.map(v=>{
     const paid = d.paidByVendor[v.id]||0;
     const st = vendorStatus(paid, v.quote);
@@ -821,10 +827,6 @@ function renderVendorDetail(d){
     html += '<a href="tel:'+esc(vendor.phone.replace(/\s/g,""))+'" class="row tiny" style="margin-top:12px;color:var(--blue);font-weight:600;text-decoration:none">'+
       icon("phone",14)+' '+esc(vendor.phone)+'</a>';
   }
-  if (vendor.quoteDocUrl){
-    html += '<a href="'+esc(vendor.quoteDocUrl)+'" target="_blank" class="row tiny" style="margin-top:10px;color:var(--blue);font-weight:600;text-decoration:none">'+
-      icon("scroll",14)+' View quotation document \u2197</a>';
-  }
   html += '</div>';
 
   if (vendor.quoteHistory && vendor.quoteHistory.length>0){
@@ -859,7 +861,7 @@ function attachVendorDetailHandlers(d){
 }
 
 /* ====================== VENDOR FORM ========================= */
-function openVendorForm(vendor){ ui.vendorQuoteDoc = null; ui.modal = { type:"vendorForm", vendorId: vendor?vendor.id:null }; render(); }
+function openVendorForm(vendor){ ui.modal = { type:"vendorForm", vendorId: vendor?vendor.id:null }; render(); }
 function renderVendorForm(d){
   const isNew = !ui.modal.vendorId;
   const vendor = isNew ? null : state.vendors.find(v=>v.id===ui.modal.vendorId);
@@ -886,18 +888,6 @@ function renderVendorForm(d){
     '<div><span class="label">GST %</span><input class="control num" inputmode="decimal" id="vfGst" value="'+esc(f.gstPct)+'"></div>'+
     '<div><span class="label">Phone</span><input class="control" inputmode="tel" id="vfPhone" value="'+esc(f.phone)+'" placeholder="+91…"></div></div>';
 
-  const vfCloudOn = !!state.settings.syncUrl;
-  const vfExistingDoc = (!isNew && vendor.quoteDocUrl) ? vendor.quoteDocUrl : "";
-  html += '<div class="field"><span class="label">Quotation document'+(vfCloudOn?" (photo or PDF)":"")+'</span>';
-  if (vfCloudOn){
-    html += '<label class="btn ghost" style="margin-top:2px">'+icon("upload",16)+' <span id="vfDocLabel">'+(vfExistingDoc?"Replace quotation":"Attach quotation")+'</span>'+
-      '<input type="file" accept="image/*,application/pdf" id="vfDocInput" style="display:none"></label>'+
-      '<div id="vfDocPreview">'+(vfExistingDoc?'<div class="tiny" style="margin-top:8px"><a href="'+esc(vfExistingDoc)+'" target="_blank" style="color:var(--blue);font-weight:700">View current quotation \u2197</a></div>':'')+'</div>';
-  }else{
-    html += '<div class="tiny muted">Connect Cloud sync (More tab) to attach and store quotation files.</div>';
-  }
-  html += '</div>';
-
   html += '<button class="btn" style="margin-top:20px" id="vfSaveBtn">'+icon("check",18)+' '+(isNew?"Add agency":"Save changes")+'</button>';
   if (!isNew) html += '<button class="btn danger" style="margin-top:10px" id="vfDeleteBtn">'+icon("trash",16)+' Delete agency & its payments</button>';
   return html;
@@ -913,23 +903,6 @@ function attachVendorFormHandlers(d){
   nameInput.oninput = refreshSaveEnabled;
   refreshSaveEnabled();
 
-  const docInput = document.getElementById("vfDocInput");
-  if (docInput){
-    docInput.onchange = (e)=>{
-      const file = e.target.files && e.target.files[0]; if (!file) return;
-      const isPdf = (file.type||"").indexOf("pdf")>-1;
-      const lbl = document.getElementById("vfDocLabel"); if (lbl) lbl.textContent = "Reading file…";
-      const r = new FileReader();
-      r.onload = ()=>{
-        ui.vendorQuoteDoc = { base64:r.result, mime:file.type||"application/octet-stream", name:file.name||("Quotation"+(isPdf?".pdf":"")) };
-        if (lbl) lbl.textContent = "Replace quotation";
-        const prev = document.getElementById("vfDocPreview");
-        if (prev) prev.innerHTML = '<div class="tiny muted" style="margin-top:8px">'+esc(file.name||"Quotation")+' — will upload when you tap Save.</div>';
-      };
-      r.readAsDataURL(file);
-    };
-  }
-
   const quoteInput = document.getElementById("vfQuote");
   const reviseWrap = document.getElementById("vfReviseWrap");
   if (!isNew && (vendor.quote||0) > 0){
@@ -939,7 +912,7 @@ function attachVendorFormHandlers(d){
     };
   }
 
-  saveBtn.onclick = async ()=>{
+  saveBtn.onclick = ()=>{
     const name = nameInput.value.trim(); if (!name) return;
     const trade = document.getElementById("vfTrade").value;
     const q = Number(quoteInput.value)||0;
@@ -949,19 +922,9 @@ function attachVendorFormHandlers(d){
     const phone = document.getElementById("vfPhone").value.trim();
     const reviseNote = document.getElementById("vfReviseNote") ? document.getElementById("vfReviseNote").value.trim() : "";
 
-    let quoteDocUrl = isNew ? "" : (vendor.quoteDocUrl||"");
-    if (ui.vendorQuoteDoc && state.settings.syncUrl){
-      saveBtn.disabled = true; saveBtn.innerHTML = icon("refresh",18)+" Uploading quotation…";
-      try{
-        const res = await cloudCall(state.settings.syncUrl, "uploadDoc",
-          { doc:{ base64:ui.vendorQuoteDoc.base64, mimeType:ui.vendorQuoteDoc.mime, name:ui.vendorQuoteDoc.name } });
-        if (res && res.url) quoteDocUrl = res.url;
-      }catch(err){ alert("Couldn't upload the quotation file — the agency will still be saved. You can attach it again later."); }
-    }
-
-    await update(n=>{
+    update(n=>{
       if (isNew){
-        n.vendors.push({ id:uid(), name, trade, quote:q, quoteHistory:[], advanceCapPct, retentionPct, gstPct, phone, note:"", quoteDocUrl });
+        n.vendors.push({ id:uid(), name, trade, quote:q, quoteHistory:[], advanceCapPct, retentionPct, gstPct, phone, note:"" });
       }else{
         const v = n.vendors.find(x=>x.id===vendor.id);
         const quoteChanged = q !== (vendor.quote||0) && (vendor.quote||0) > 0;
@@ -969,11 +932,9 @@ function attachVendorFormHandlers(d){
           v.quoteHistory = v.quoteHistory||[];
           v.quoteHistory.unshift({ date: todayISO(), amount: q, note: reviseNote || "Revised" });
         }
-        Object.assign(v, { name, trade, quote:q, advanceCapPct, retentionPct, gstPct, phone, quoteDocUrl });
+        Object.assign(v, { name, trade, quote:q, advanceCapPct, retentionPct, gstPct, phone });
       }
-    });
-    pushVendors();
-    ui.vendorQuoteDoc = null;
+    }).then(()=> pushVendors());
     ui.modal = null; render();
   };
 
@@ -992,6 +953,7 @@ function attachVendorFormHandlers(d){
 
 /* ======================== PAY FORM ========================= */
 function openPayModal(){
+  if (state.vendors.length===0){ ui.modal = { type:"pay", noVendors:true }; render(); return; }
   ui.payOverride = false; ui.payReceipt = null;
   ui.modal = { type:"pay" };
   render();
@@ -1008,27 +970,19 @@ function computePayGuards(vendor, paid, advPaid, amt, ptype){
   return { quote, overBy, overQuote, advCap, overAdvance, retentionHold, payableNow, nearingRetention };
 }
 function renderPayForm(d){
-  const hasVendors = state.vendors.length > 0;
-  const selVendorId = hasVendors ? state.vendors[0].id : "__NEW__";
+  if (ui.modal.noVendors){
+    return '<div class="sheetHead"><h2>Add payment</h2><button class="iconbtn" id="payCloseBtn2">'+icon("x",18)+'</button></div>'+
+      '<div class="empty">'+icon("users",28)+'<div>Add an agency first, then record payments against it.</div>'+
+      '<button class="btn" style="margin-top:16px" id="payGoAddVendor">'+icon("plusCircle",18)+' Add agency</button></div>';
+  }
+  const vendorId = state.vendors[0].id;
   const cloudOn = !!state.settings.syncUrl;
 
   let html = '<div class="sheetHead"><h2>Add payment</h2><button class="iconbtn" id="payCloseBtn">'+icon("x",18)+'</button></div>';
 
   html += '<div class="field"><span class="label">Agency</span><select class="control" id="payVendorSel">'+
-    state.vendors.map(v=>'<option value="'+v.id+'"'+(v.id===selVendorId?" selected":"")+'>'+esc(v.name)+' — '+esc(v.trade)+'</option>').join("")+
-    '<option value="__NEW__"'+(selVendorId==="__NEW__"?" selected":"")+'>+ Add new agency…</option>'+
+    state.vendors.map(v=>'<option value="'+v.id+'"'+(v.id===vendorId?" selected":"")+'>'+esc(v.name)+' — '+esc(v.trade)+'</option>').join("")+
     '</select></div>';
-
-  html += '<div id="payNewVendorWrap" style="display:'+(selVendorId==="__NEW__"?"block":"none")+'">'+
-    '<div class="field"><span class="label">New agency name</span>'+
-    '<input class="control" id="payNewVendorName" placeholder="e.g. Sharma Plumbing"></div>'+
-    '<div class="two">'+
-      '<div><span class="label">Trade</span><select class="control" id="payNewVendorTrade">'+
-        TRADES.map(t=>'<option>'+esc(t)+'</option>').join("")+'</select></div>'+
-      '<div><span class="label">Quote ₹ <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
-      '<input class="control num" inputmode="decimal" id="payNewVendorQuote" placeholder="0"></div>'+
-    '</div>'+
-    '<div class="tiny muted" style="margin-top:4px">Creates a new agency. Set advance cap, retention &amp; GST later in the Agencies tab.</div></div>';
 
   html += '<div class="field"><span class="label">Amount paid (₹)</span>'+
     '<input class="control num" inputmode="decimal" id="payAmount" autofocus placeholder="0" style="font-size:22px;font-weight:700"></div>';
@@ -1063,8 +1017,8 @@ function renderPayForm(d){
 
   html += '<div class="field"><span class="label">Bill / quote photo'+(cloudOn?" (optional)":"")+'</span>';
   if (cloudOn){
-    html += '<label class="btn ghost" style="margin-top:2px">'+icon("camera",16)+' <span id="receiptLabelText">Attach bill (photo or PDF)</span>'+
-      '<input type="file" accept="image/*,application/pdf" id="payReceiptInput" style="display:none"></label>'+
+    html += '<label class="btn ghost" style="margin-top:2px">'+icon("camera",16)+' <span id="receiptLabelText">Scan or choose photo</span>'+
+      '<input type="file" accept="image/*" capture="environment" id="payReceiptInput" style="display:none"></label>'+
       '<div id="receiptPreviewArea"></div>';
   }else{
     html += '<div class="tiny muted">Connect Cloud sync (More tab) to attach and store bill photos.</div>';
@@ -1075,16 +1029,10 @@ function renderPayForm(d){
   return html;
 }
 function updatePayWarnings(){
-  const sel = document.getElementById("payVendorSel").value;
-  const isNewVendor = sel === "__NEW__";
-  const newName = isNewVendor ? ((document.getElementById("payNewVendorName")||{}).value||"").trim() : "";
-  const vendor = isNewVendor
-    ? { id:"__NEW__", name:newName||"New agency", quote:Number((document.getElementById("payNewVendorQuote")||{}).value)||0,
-        advanceCapPct:10, retentionPct:0, gstPct:0 }
-    : state.vendors.find(v=>v.id===sel);
+  const vendor = state.vendors.find(v=>v.id===document.getElementById("payVendorSel").value);
   const d = computeDerived();
-  const paid = isNewVendor ? 0 : (d.paidByVendor[vendor.id]||0);
-  const advPaid = isNewVendor ? 0 : (d.advByVendor[vendor.id]||0);
+  const paid = d.paidByVendor[vendor.id]||0;
+  const advPaid = d.advByVendor[vendor.id]||0;
   const amt = Number(document.getElementById("payAmount").value)||0;
   const ptype = document.getElementById("payType").value;
   const g = computePayGuards(vendor, paid, advPaid, amt, ptype);
@@ -1120,15 +1068,11 @@ function updatePayWarnings(){
       icon("alert",16)+'<div>Pick which bank account this '+esc(mode)+' payment is going out from.</div></div>';
   }
 
-  const nameMissing = isNewVendor && !newName;
-  const blocked = amt<=0 || g.overQuote || (g.overAdvance && !ui.payOverride) || bankMissing || nameMissing;
+  const blocked = amt<=0 || g.overQuote || (g.overAdvance && !ui.payOverride) || bankMissing;
   const saveBtn = document.getElementById("paySaveBtn");
   saveBtn.disabled = blocked;
-  saveBtn.innerHTML = icon("check",18)+" "+(nameMissing?"Enter agency name":(g.overQuote?"Over quote — blocked":(bankMissing?"Choose a bank account":("Record "+(amt>0?rupee(amt):"payment")))));
-  return { vendor, amt, ptype, g, blocked, mode, bankAccount: bankSel?bankSel.value:"",
-    isNewVendor, newVendorName:newName,
-    newVendorTrade: isNewVendor ? ((document.getElementById("payNewVendorTrade")||{}).value||TRADES[0]) : "",
-    newVendorQuote: isNewVendor ? (Number((document.getElementById("payNewVendorQuote")||{}).value)||0) : 0 };
+  saveBtn.innerHTML = icon("check",18)+" "+(g.overQuote?"Over quote — blocked":(bankMissing?"Choose a bank account":("Record "+(amt>0?rupee(amt):"payment"))));
+  return { vendor, amt, ptype, g, blocked, mode, bankAccount: bankSel?bankSel.value:"" };
 }
 function modeRequiresBank(modeName){
   const m = state.settings.paymentModes.find(x=>x.name===modeName);
@@ -1151,20 +1095,11 @@ function updatePayBankField(){
   }
 }
 function attachPayFormHandlers(d){
-  const vendorSel = document.getElementById("payVendorSel");
-  const newWrap = document.getElementById("payNewVendorWrap");
-  function toggleNewVendor(){
-    const isNew = vendorSel.value === "__NEW__";
-    if (newWrap) newWrap.style.display = isNew ? "block" : "none";
-    if (isNew){ const nm = document.getElementById("payNewVendorName"); if (nm && !nm.value) nm.focus(); }
-    updatePayWarnings();
+  if (ui.modal.noVendors){
+    document.getElementById("payCloseBtn2").onclick = closeModal;
+    document.getElementById("payGoAddVendor").onclick = ()=> openVendorForm(null);
+    return;
   }
-  vendorSel.addEventListener("change", toggleNewVendor);
-  ["payNewVendorName","payNewVendorQuote"].forEach(id=>{
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("input", updatePayWarnings);
-  });
-
   document.getElementById("payMode").addEventListener("change", ()=>{ updatePayBankField(); updatePayWarnings(); });
   updatePayBankField();
 
@@ -1198,18 +1133,15 @@ function attachPayFormHandlers(d){
   if (receiptInput){
     receiptInput.onchange = (e)=>{
       const file = e.target.files && e.target.files[0]; if (!file) return;
-      const isPdf = (file.type||"").indexOf("pdf") > -1;
-      document.getElementById("receiptLabelText").textContent = "Reading file…";
+      document.getElementById("receiptLabelText").textContent = "Reading photo…";
       const r = new FileReader();
       r.onload = ()=>{
         ui.payReceipt = { base64:r.result, mime:file.type||"image/jpeg" };
-        document.getElementById("receiptLabelText").textContent = "Replace file";
-        const thumb = isPdf
-          ? '<div style="width:56px;height:56px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);background:var(--blueSoft)">PDF</div>'
-          : '<img src="'+r.result+'" alt="Bill preview" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">';
+        document.getElementById("receiptLabelText").textContent = "Replace photo";
         document.getElementById("receiptPreviewArea").innerHTML =
-          '<div class="row" style="margin-top:10px;gap:10px">'+thumb+
-          '<div class="tiny muted">'+esc(file.name||(isPdf?"Bill.pdf":"Bill"))+' — saved to your Drive folder and linked to this entry.</div></div>';
+          '<div class="row" style="margin-top:10px;gap:10px">'+
+          '<img src="'+r.result+'" alt="Bill preview" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">'+
+          '<div class="tiny muted">Will be saved to your Drive folder and linked to this entry.</div></div>';
       };
       r.readAsDataURL(file);
     };
@@ -1220,21 +1152,9 @@ function attachPayFormHandlers(d){
   document.getElementById("paySaveBtn").onclick = async ()=>{
     const check = updatePayWarnings();
     if (check.blocked) return;
-
-    let vendorId = document.getElementById("payVendorSel").value;
-    let createdVendor = null;
-    if (vendorId === "__NEW__"){
-      const nm = (check.newVendorName||"").trim();
-      if (!nm){ const el=document.getElementById("payNewVendorName"); if(el) el.focus(); return; }
-      createdVendor = { id:uid(), name:nm, trade:check.newVendorTrade||TRADES[0], quote:check.newVendorQuote||0,
-        quoteHistory:[], advanceCapPct:10, retentionPct:0, gstPct:0, phone:"", note:"" };
-      state.vendors.push(createdVendor);
-      vendorId = createdVendor.id;
-    }
-
     const id = uid();
     const payment = {
-      id, vendorId,
+      id, vendorId: document.getElementById("payVendorSel").value,
       amount: check.amt, mode: check.mode,
       bankAccount: modeRequiresBank(check.mode) ? check.bankAccount : "",
       type: check.ptype,
@@ -1249,7 +1169,6 @@ function attachPayFormHandlers(d){
     };
     state.payments.push(payment);
     await saveState();
-    if (createdVendor) pushVendors();
     ui.modal = null; render();
 
     if (state.settings.syncUrl){
