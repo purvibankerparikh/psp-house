@@ -236,7 +236,7 @@ async function pullAll(url){
 async function connectCloud(rawUrl){
   const url=(rawUrl||"").trim(); if(!url) return;
   state.settings.syncUrl = url; await saveState();
-  await pushVendors(url); await pullAll(url); render();
+  await pullAll(url); render();
 }
 function refreshSyncLine(){
   const el = document.getElementById("syncLine"); if (!el) return;
