@@ -624,7 +624,10 @@ function renderLedger(d){
         (p.gst>0? '<div class="tiny" style="color:var(--faint);margin-top:2px">GST '+rupee(p.gst)+(p.gstPct?" @"+p.gstPct+"%":"")+' · '+(p.gstBasis==="net"?"net + GST":"incl.")+'</div>' : '')+
         (p.billRef? '<a href="'+esc(p.billRef)+'" target="_blank" rel="noreferrer" class="tiny row" style="color:var(--blue);font-weight:600;margin-top:3px;text-decoration:none">'+icon("extLink",12)+' View bill</a>' : '')+
         '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0"><div class="num" style="font-weight:700">'+rupee(p.amount)+'</div>'+
-        '<button class="delpay" data-delpay="'+p.id+'" aria-label="Delete payment" style="border:none;background:none;padding:2px 4px;color:var(--faint);cursor:pointer">'+icon("trash",15)+'</button>'+
+        '<div class="row" style="gap:2px">'+
+          '<button class="delpay" data-editpay="'+p.id+'" aria-label="Edit payment" style="border:none;background:none;padding:2px 4px;color:var(--faint);cursor:pointer">'+icon("pencil",14)+'</button>'+
+          '<button class="delpay" data-delpay="'+p.id+'" aria-label="Delete payment" style="border:none;background:none;padding:2px 4px;color:var(--faint);cursor:pointer">'+icon("trash",15)+'</button>'+
+        '</div>'+
         '</div></div></div>';
     });
     html += '</div>';
@@ -635,6 +638,9 @@ function renderLedger(d){
 function attachLedgerHandlers(d){
   document.getElementById("ledgerFloorSel").onchange = (e)=>{ ui.ledgerFloor = e.target.value; render(); };
   document.getElementById("ledgerVendorSel").onchange = (e)=>{ ui.ledgerVendor = e.target.value; render(); };
+  document.querySelectorAll("[data-editpay]").forEach(btn=>{
+    btn.onclick = ()=> openEditPayModal(btn.getAttribute("data-editpay"));
+  });
   document.querySelectorAll("[data-delpay]").forEach(btn=>{
     btn.onclick = async ()=>{
       const id = btn.getAttribute("data-delpay");
@@ -1040,6 +1046,11 @@ function openPayModal(){
   ui.modal = { type:"pay" };
   render();
 }
+function openEditPayModal(id){
+  ui.payOverride = false; ui.payReceipt = null;
+  ui.modal = { type:"pay", editId:id };
+  render();
+}
 function computePayGuards(vendor, paid, advPaid, amt, ptype){
   const quote = vendor.quote||0;
   const overBy = (paid + amt) - quote;
@@ -1052,15 +1063,17 @@ function computePayGuards(vendor, paid, advPaid, amt, ptype){
   return { quote, overBy, overQuote, advCap, overAdvance, retentionHold, payableNow, nearingRetention };
 }
 function renderPayForm(d){
+  const editId = ui.modal.editId || null;
+  const ep = editId ? state.payments.find(p=>p.id===editId) : null;
   const hasVendors = state.vendors.length > 0;
-  const selVendorId = hasVendors ? state.vendors[0].id : "__NEW__";
+  const selVendorId = ep ? ep.vendorId : (hasVendors ? state.vendors[0].id : "__NEW__");
   const cloudOn = !!state.settings.syncUrl;
 
-  let html = '<div class="sheetHead"><h2>Add payment</h2><button class="iconbtn" id="payCloseBtn">'+icon("x",18)+'</button></div>';
+  let html = '<div class="sheetHead"><h2>'+(ep?"Edit payment":"Add payment")+'</h2><button class="iconbtn" id="payCloseBtn">'+icon("x",18)+'</button></div>';
 
   html += '<div class="field"><span class="label">Agency</span><select class="control" id="payVendorSel">'+
     state.vendors.map(v=>'<option value="'+v.id+'"'+(v.id===selVendorId?" selected":"")+'>'+esc(v.name)+' — '+esc(v.trade)+'</option>').join("")+
-    '<option value="__NEW__"'+(selVendorId==="__NEW__"?" selected":"")+'>+ Add new agency…</option>'+
+    (ep? '' : '<option value="__NEW__"'+(selVendorId==="__NEW__"?" selected":"")+'>+ Add new agency…</option>')+
     '</select></div>';
 
   html += '<div id="payNewVendorWrap" style="display:'+(selVendorId==="__NEW__"?"block":"none")+'">'+
@@ -1130,18 +1143,20 @@ function computePayGst(){
   const pct = Number((document.getElementById("payGstPct")||{}).value)||0;
   const basis = (document.getElementById("payGstBasis")||{}).value || "gross";
   let gst=0, net=amt, gross=amt;
-  if (pct>0){
-    if (basis==="gross"){ net = amt/(1+pct/100); gst = amt-net; gross = amt; }
-    else { gst = amt*pct/100; gross = amt+gst; net = amt; }
+  if (basis==="gross" && pct>0){
+    net = amt/(1+pct/100); gst = amt-net; gross = amt;   // break GST out of the amount
+  } else {
+    gst = 0; net = amt; gross = amt;                      // net: amount is as-is, GST not added
   }
   return { amt, pct, basis, gst, net, gross };
 }
 function updateGstReadout(){
   const el = document.getElementById("payGstReadout"); if (!el) return;
   const g = computePayGst();
-  if (!g.amt || !g.pct){ el.textContent = "Enter a GST % to split out the tax portion."; return; }
-  if (g.basis==="gross") el.innerHTML = "Includes GST \u2248 <b>"+rupee(Math.round(g.gst))+"</b> \u00b7 net "+rupee(Math.round(g.net));
-  else el.innerHTML = "GST \u2248 <b>"+rupee(Math.round(g.gst))+"</b> extra \u2192 gross "+rupee(Math.round(g.gross));
+  if (!g.amt){ el.textContent = ""; return; }
+  if (g.basis==="net"){ el.textContent = "Recorded as entered — GST is not added."; return; }
+  if (!g.pct){ el.textContent = "Enter a GST % to split out the tax portion."; return; }
+  el.innerHTML = "Includes GST \u2248 <b>"+rupee(Math.round(g.gst))+"</b> \u00b7 net "+rupee(Math.round(g.net));
 }
 function setGstFromVendor(){
   const sel = (document.getElementById("payVendorSel")||{}).value;
@@ -1160,8 +1175,14 @@ function updatePayWarnings(){
         advanceCapPct:10, retentionPct:0, gstPct:0 }
     : state.vendors.find(v=>v.id===sel);
   const d = computeDerived();
-  const paid = isNewVendor ? 0 : (d.paidByVendor[vendor.id]||0);
-  const advPaid = isNewVendor ? 0 : (d.advByVendor[vendor.id]||0);
+  let paid = isNewVendor ? 0 : (d.paidByVendor[vendor.id]||0);
+  let advPaid = isNewVendor ? 0 : (d.advByVendor[vendor.id]||0);
+  const editId = ui.modal.editId || null;
+  const ep = editId ? state.payments.find(p=>p.id===editId) : null;
+  if (ep && !isNewVendor && ep.vendorId===vendor.id){
+    paid -= ep.amount;                                  // don't count the row we're editing
+    if (ep.type==="Advance") advPaid -= ep.amount;
+  }
   const amt = Number(document.getElementById("payAmount").value)||0;
   const ptype = document.getElementById("payType").value;
   const g = computePayGuards(vendor, paid, advPaid, amt, ptype);
@@ -1201,7 +1222,7 @@ function updatePayWarnings(){
   const blocked = amt<=0 || g.overQuote || (g.overAdvance && !ui.payOverride) || bankMissing || nameMissing;
   const saveBtn = document.getElementById("paySaveBtn");
   saveBtn.disabled = blocked;
-  saveBtn.innerHTML = icon("check",18)+" "+(nameMissing?"Enter agency name":(g.overQuote?"Over quote — blocked":(bankMissing?"Choose a bank account":("Record "+(amt>0?rupee(amt):"payment")))));
+  saveBtn.innerHTML = icon("check",18)+" "+(nameMissing?"Enter agency name":(g.overQuote?"Over quote — blocked":(bankMissing?"Choose a bank account":(ep?"Save changes":("Record "+(amt>0?rupee(amt):"payment"))))));
   return { vendor, amt, ptype, g, blocked, mode, bankAccount: bankSel?bankSel.value:"",
     isNewVendor, newVendorName:newName,
     newVendorTrade: isNewVendor ? ((document.getElementById("payNewVendorTrade")||{}).value||TRADES[0]) : "",
@@ -1304,6 +1325,36 @@ function attachPayFormHandlers(d){
     };
   }
 
+  // ----- prefill when editing an existing payment -----
+  const _editId = ui.modal.editId || null;
+  const _ep = _editId ? state.payments.find(p=>p.id===_editId) : null;
+  if (_ep){
+    const set = (id,val)=>{ const el=document.getElementById(id); if(el!=null&&val!=null&&val!=="") el.value=val; };
+    set("payVendorSel", _ep.vendorId);
+    set("payAmount", _ep.amount);
+    set("payType", _ep.type);
+    set("payInvoiceNo", _ep.invoiceNumber);
+    set("payMode", _ep.mode);
+    updatePayBankField();
+    { const bs=document.getElementById("payBankSel"); if (bs && _ep.bankAccount) bs.value=_ep.bankAccount; }
+    set("payFloor", _ep.floor);
+    floorSel.onchange();
+    if (_ep.room){ const rs=document.getElementById("payRoom"); if(rs) rs.value=_ep.room; }
+    document.querySelectorAll('#payWorkSeg [data-work]').forEach(b=>b.classList.toggle("on", b.getAttribute("data-work")===(_ep.work||"Both")));
+    { const wv=document.getElementById("payWorkVal"); if(wv) wv.value=_ep.work||"Both"; }
+    set("payDate", _ep.date);
+    { const gp=document.getElementById("payGstPct"); if(gp) gp.value=_ep.gstPct||""; }
+    const _basis = _ep.gstBasis||"gross";
+    document.querySelectorAll('#payGstBasisSeg [data-basis]').forEach(b=>b.classList.toggle("on", b.getAttribute("data-basis")===_basis));
+    { const gb=document.getElementById("payGstBasis"); if(gb) gb.value=_basis; }
+    set("payNote", _ep.note);
+    if (_ep.billRef){
+      const area=document.getElementById("receiptPreviewArea");
+      if (area) area.innerHTML = '<a href="'+esc(_ep.billRef)+'" target="_blank" rel="noreferrer" class="tiny row" style="color:var(--blue);font-weight:600;margin-top:8px;text-decoration:none">'+icon("extLink",12)+' Current bill \u00b7 attach to replace</a>';
+    }
+    updateGstReadout();
+  }
+
   updatePayWarnings();
 
   document.getElementById("paySaveBtn").onclick = async ()=>{
@@ -1321,10 +1372,9 @@ function attachPayFormHandlers(d){
       vendorId = createdVendor.id;
     }
 
-    const id = uid();
     const gstInfo = computePayGst();
-    const payment = {
-      id, vendorId,
+    const fields = {
+      vendorId,
       amount: check.amt, mode: check.mode,
       bankAccount: modeRequiresBank(check.mode) ? check.bankAccount : "",
       type: check.ptype,
@@ -1336,10 +1386,34 @@ function attachPayFormHandlers(d){
       gstPct: gstInfo.pct,
       gstBasis: gstInfo.basis,
       date: document.getElementById("payDate").value || todayISO(),
-      note: document.getElementById("payNote").value.trim(),
-      billRef: "",
-      synced: false
+      note: document.getElementById("payNote").value.trim()
     };
+
+    // ---------- EDIT an existing payment ----------
+    const editId = ui.modal.editId || null;
+    if (editId){
+      const target = state.payments.find(p=>p.id===editId);
+      if (target){
+        Object.assign(target, fields, { synced:false });
+        await saveState();
+        if (createdVendor) pushVendors();
+        ui.modal = null; render();
+        if (state.settings.syncUrl){
+          const payload = ui.payReceipt
+            ? Object.assign({}, target, { receiptBase64: ui.payReceipt.base64, receiptMimeType: ui.payReceipt.mime })
+            : target;
+          const res = await cloudCall(state.settings.syncUrl, "updatePayment", { payment: payload }).catch(()=>null);
+          const p = state.payments.find(x=>x.id===editId);
+          if (p && res){ p.synced = true; if (res.billRef) p.billRef = res.billRef; await saveState(); if (ui.tab==="ledger"||ui.tab==="home") render(); }
+        }
+      }
+      ui.payReceipt = null;
+      return;
+    }
+
+    // ---------- ADD a new payment ----------
+    const id = uid();
+    const payment = Object.assign({ id }, fields, { billRef:"", synced:false });
     state.payments.push(payment);
     await saveState();
     if (createdVendor) pushVendors();
