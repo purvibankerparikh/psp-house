@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Parikh Residence</title>
+<style>
+:root{
+  --paper:#F1F0EA; --surface:#FFFFFF; --surface2:#FBFAF6; --ink:#15181C; --muted:#6B7177; --faint:#9AA0A6; --line:#E5E3DC; --line2:#EEEDE6;
+  --blue:#1F5A8C; --blueDeep:#17456B; --blueSoft:#E9F1F8; --green:#2E7D57; --greenSoft:#E7F2EC; --amber:#A96C10; --amberSoft:#FAF0DC;
+  --red:#B23A2E; --redSoft:#F8E9E7;
+  --sh1:0 1px 2px rgba(20,22,26,.05); --sh2:0 2px 6px rgba(20,22,26,.05), 0 10px 26px rgba(20,22,26,.06);
+  --r:16px;
+}
+html,body{margin:0;padding:0;background:var(--paper);}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.psp { font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  background:var(--paper); color:var(--ink); min-height:100vh; max-width:520px; margin:0 auto;
+  position:relative; padding-bottom:88px; }
+.psp .num { font-variant-numeric: tabular-nums; font-feature-settings:"tnum";
+  font-family: ui-monospace,"SF Mono",Menlo,monospace; letter-spacing:-.02em; }
+.psp button { font-family:inherit; cursor:pointer; border:none; background:none; }
+.psp input, .psp select, .psp textarea { font-family:inherit; font-size:16px; }
+
+/* top bar */
+.topbar { position:sticky; top:0; z-index:20; background:rgba(241,240,234,.86); backdrop-filter:saturate(160%) blur(10px);
+  padding:14px 18px 11px; border-bottom:1px solid var(--line); }
+.topbar .kick { font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--blue); font-weight:800; }
+.topbar h1 { margin:2px 0 0; font-size:21px; font-weight:800; letter-spacing:-.02em; }
+.topbar .sub { font-size:12px; color:var(--muted); margin-top:1px; }
+
+.wrap { padding:16px 16px 4px; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px; box-shadow:var(--sh1); }
+.card + .card { margin-top:12px; }
+.row { display:flex; align-items:center; gap:10px; }
+.between { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.muted { color:var(--muted); }
+.tiny { font-size:11px; }
+.label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); font-weight:600; }
+
+/* hero totals — architect's ledger */
+.hero { position:relative; overflow:hidden; background:linear-gradient(155deg,#1c2127 0%,#14171b 62%);
+  color:#fff; border-radius:20px; padding:18px 18px 16px; box-shadow:var(--sh2); }
+.hero::before { content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size:24px 24px; background-position:-1px -1px;
+  -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,0) 88%);
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,0) 88%); }
+.hero > * { position:relative; }
+.hero .big { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:32px; font-weight:700;
+  letter-spacing:-.03em; margin-top:5px; }
+.hero .heroGrid { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:15px; }
+.hero .cell { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.07); border-radius:13px; padding:10px 12px; }
+.hero .cell .k { font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:rgba(255,255,255,.58); font-weight:600; }
+.hero .cell .v { font-size:16px; font-weight:600; margin-top:3px; }
+
+/* building section signature */
+.floorRow { display:grid; grid-template-columns:58px 1fr auto; align-items:center; gap:10px;
+  padding:10px 0; border-top:1px dashed var(--line); }
+.floorRow:first-child { border-top:none; }
+.lvl { text-align:right; }
+.lvl .code { font-size:13px; font-weight:800; letter-spacing:.02em; }
+.lvl .mm { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:10px; color:var(--faint); }
+.bar { height:8px; border-radius:6px; background:var(--line2); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(20,22,26,.02); }
+.bar > span { display:block; height:100%; border-radius:6px; }
+
+/* progress + status */
+.pill { font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px; letter-spacing:.02em; }
+.chip { font-size:11px; padding:4px 10px; border-radius:20px; border:1px solid var(--line);
+  background:var(--surface); color:var(--muted); white-space:nowrap; box-shadow:var(--sh1); }
+
+/* vendor list */
+.vItem { padding:14px 0; border-top:1px solid var(--line); }
+.vItem:first-child { border-top:none; }
+
+/* forms */
+.field { margin-top:14px; }
+.field > .label { display:block; margin-bottom:6px; }
+.control { width:100%; padding:13px 12px; border:1px solid var(--line); border-radius:12px;
+  background:var(--surface); color:var(--ink); -webkit-appearance:none; appearance:none; transition:border-color .15s, box-shadow .15s; }
+.control:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blueSoft); }
+select.control { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2371767E' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 14px center; padding-right:34px; }
+.seg { display:flex; gap:6px; }
+.psp .seg button { flex:1; padding:11px; border:1px solid var(--line); border-radius:11px; background:var(--surface);
+  color:var(--muted); font-size:13px; font-weight:600; transition:transform .08s; }
+.psp .seg button.on { background:var(--ink); color:#fff; border-color:var(--ink); box-shadow:var(--sh1); }
+.psp .seg button:active { transform:scale(.97); }
+.two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* primary button */
+.psp .btn { width:100%; padding:15px; border-radius:14px; font-size:16px; font-weight:700;
+  background:linear-gradient(165deg,var(--blue),var(--blueDeep)); color:#fff; display:flex; align-items:center; justify-content:center; gap:8px;
+  box-shadow:0 3px 10px rgba(31,90,140,.28); transition:transform .08s, box-shadow .15s, background .15s; }
+.psp .btn:active { transform:translateY(1px) scale(.995); box-shadow:0 1px 5px rgba(31,90,140,.25); }
+.psp .btn:disabled { background:var(--line); color:var(--faint); box-shadow:none; }
+.psp .btn.ghost { background:var(--surface); color:var(--ink); border:1px solid var(--line); box-shadow:var(--sh1); }
+.psp .btn.danger { background:var(--redSoft); color:var(--red); box-shadow:none; }
+.psp label.btn { display:flex; }
+
+/* alerts */
+.warn { border-radius:12px; padding:11px 12px; font-size:13px; display:flex; gap:9px; align-items:flex-start; line-height:1.35; }
+
+/* bottom nav */
+.nav { position:fixed; bottom:0; left:0; right:0; z-index:30; max-width:520px; margin:0 auto;
+  background:rgba(255,255,255,.9); backdrop-filter:saturate(180%) blur(14px);
+  border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(5,1fr);
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom)); }
+.psp .nav button { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--faint);
+  font-size:10px; font-weight:600; padding:4px 0; transition:color .15s; }
+.psp .nav button.on { color:var(--blue); }
+.psp .nav .add { justify-content:flex-start; gap:5px; }
+.psp .nav .add .addDisc { width:50px; height:50px; margin-top:-16px; border-radius:50%;
+  background:linear-gradient(160deg,var(--blue),var(--blueDeep)); display:flex; align-items:center; justify-content:center;
+  border:3px solid var(--paper); box-shadow:0 6px 16px rgba(31,90,140,.42), inset 0 1px 0 rgba(255,255,255,.22);
+  transition:transform .1s; }
+.psp .nav .add span:last-child { color:var(--blue); margin-top:-8px; }
+.psp .nav .add:active .addDisc { transform:scale(.93); }
+
+/* modal / sheet */
+.scrim { position:fixed; inset:0; z-index:40; background:rgba(16,18,22,.46); display:flex; align-items:flex-end;
+  justify-content:center; }
+.sheet { width:100%; max-width:520px; background:var(--paper); border-radius:24px 24px 0 0;
+  max-height:92vh; overflow-y:auto; padding:8px 16px calc(24px + env(safe-area-inset-bottom)); box-shadow:0 -8px 40px rgba(16,18,22,.18); }
+.grab { width:38px; height:5px; border-radius:3px; background:var(--line); margin:8px auto 4px; }
+.sheetHead { display:flex; align-items:center; justify-content:space-between; padding:6px 0 10px; }
+.sheetHead h2 { font-size:18px; font-weight:800; letter-spacing:-.01em; margin:0; }
+.psp .iconbtn { width:34px; height:34px; border-radius:50%; background:var(--surface); border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center; color:var(--muted); box-shadow:var(--sh1); }
+
+/* ledger */
+.led { padding:12px 0; border-top:1px solid var(--line2); }
+.led:first-child { border-top:none; }
+.dayhead { position:sticky; top:0; background:var(--paper); padding:8px 0 6px; font-size:12px;
+  font-weight:800; letter-spacing:.01em; color:var(--muted); display:flex; justify-content:space-between; }
+.delpay { transition:color .15s, transform .08s; }
+.delpay:active { transform:scale(.88); color:var(--red); }
+
+.empty { text-align:center; padding:44px 20px; color:var(--muted); }
+.empty .ic { color:var(--faint); margin-bottom:10px; }
+.errBox{background:#fff3f2;border:1px solid #f3c8c3;color:#8a2a20;border-radius:12px;padding:14px;margin:16px;font-size:13px;white-space:pre-wrap;}
+
+@media (prefers-reduced-motion: no-preference){
+  .bar > span { transition: width .5s ease; }
+}
+@media (prefers-reduced-motion: reduce){
+  .psp *, .psp *::before { transition:none !important; }
+}
+</style>
+</head>
+<body>
+<div id="app" class="psp"></div>
+
+<script>
+/* ============================================================
+   PARIKH RESIDENCE (Krushna Aranaya) — Construction Expense Tracker (standalone HTML)
+   Ahmedabad · G+3 + OHWT · built from the working plan
+   No framework, no build step — just this one file.
+   ============================================================ */
+"use strict";
+
+const STORAGE_KEY = "psp_house_tracker_v1";
+
+/* When this file runs outside Claude (self-hosted on your own web address),
+   Claude's window.storage isn't present — fall back to the browser's own
+   localStorage so the app still remembers data and the sync URL on the device.
+   Inside Claude, window.storage already exists and this block is skipped. */
+if (typeof window !== "undefined" && !window.storage){
+  window.storage = {
+    get: async (key)=>{ const v = localStorage.getItem(key); return v==null ? null : { key, value:v }; },
+    set: async (key, value)=>{ localStorage.setItem(key, value); return { key, value }; },
+    delete: async (key)=>{ localStorage.removeItem(key); return { key, deleted:true }; },
+    list: async (prefix)=>{ const keys=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!prefix||k.indexOf(prefix)===0) keys.push(k);} return { keys }; }
+  };
+}
+
+/* ---------- structure from the working plan ---------- */
+const FLOORS = [
+  { id:"ground", name:"Ground Floor", code:"GF", level:"+1050",
+    rooms:["Vestibule","Foyer","Puja","Living","Dining","Kitchen","Store","Toilet","Shower",
+      "Parents BR","Parents Dress","Parents Bath","Deck","Outdoor Kitchen","Parking",
+      "Servant Toilet","Store (Landing)","Rear Deck","Garden","Ramp","Lift"] },
+  { id:"first", name:"First Floor", code:"1F", level:"+5050",
+    rooms:["Master BR","Master Dress","Master Bath","Anaaya BR","Anaaya Dress","Anaaya Bath",
+      "Arnav BR","Arnav Dress","Arnav Bath","Study / Office","Linen Store","Balcony 1","Balcony 2",
+      "Shower","Passage","Lift"] },
+  { id:"second", name:"Second Floor", code:"2F", level:"+8400",
+    rooms:["Gym / Yoga","Toilet","Terrace (Large)","Terrace (2)","Balcony","Store","Store (Balcony)",
+      "Pantry","Passage","Lift"] },
+  { id:"third", name:"Third Floor", code:"3F", level:"+11750",
+    rooms:["OHT Store","Terrace","Pergola","Passage","Lift"] },
+  { id:"ohwt", name:"OHWT / Terrace", code:"OH", level:"+13400",
+    rooms:["Water Tank Room","Servant Quarter","Garden","Passage"] },
+  { id:"common", name:"Whole House / Common", code:"CO", level:"—",
+    rooms:["Structure & RCC","Brickwork","Plaster","Waterproofing","Plumbing & Sanitary","Electrical",
+      "Flooring & Tiling","Kitchen Fitout","Wardrobes / Carpentry","Painting","Doors & Windows",
+      "Railings & Fabrication","False Ceiling","Elevation / Facade","Lift Installation","HVAC / AC",
+      "Solar / Water Heater","Boundary Wall","Main Gate","Landscaping","Water Tanks","Drainage",
+      "Site Development","Professional Fees","Statutory / Permissions","Miscellaneous"] },
+];
+
+const TRADES = ["Civil / RCC","Masonry","Plaster","Waterproofing","Plumbing & Sanitary","Electrical",
+  "Flooring & Tiles","Kitchen","Carpentry / Wardrobes","Painting","Doors & Windows","Fabrication / Railing",
+  "False Ceiling","Facade / Elevation","Lift","HVAC","Solar","Landscaping","Boundary / Gate",
+  "Professional Fees","Statutory","Labour Charges","Material Purchase","Miscellaneous"];
+
+const DEFAULT_MODES = [
+  {name:"UPI", bank:true}, {name:"Bank Transfer", bank:true}, {name:"Cheque", bank:true},
+  {name:"Others", bank:false}, {name:"Card", bank:false}
+];
+const DEFAULT_PTYPES = ["Advance","Against Invoice","Against Milestone","Against Retention"];
+const DEFAULT_BANK_ACCOUNTS = ["skp_main_918","psp_main_1236","construction_3006","overdraft_1238"];
+
+/* ---------- tiny icon set (Feather-style inline SVG) ---------- */
+const ICONS = {
+  home:'<path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1V10"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  plusCircle:'<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  scroll:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/>',
+  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  alert:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  phone:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  pencil:'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+  trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z"/>',
+  chevron:'<path d="m9 18 6-6-6-6"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
+  refresh:'<path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  cloud:'<path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.9A4 4 0 0 0 6.5 19z"/>',
+  camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  extLink:'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/>',
+};
+function icon(name, size, color, sw){
+  size = size || 20; color = color || "currentColor"; sw = sw || 2;
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" '+
+    'fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round" '+
+    'style="flex-shrink:0">'+ (ICONS[name]||"") +'</svg>';
+}
+
+/* ---------- helpers ---------- */
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function fmt(n, dp){
+  dp = dp||0; const v = Number(n)||0;
+  return v.toLocaleString("en-IN",{minimumFractionDigits:dp,maximumFractionDigits:dp});
+}
+function rupee(n, dp){ return "₹" + fmt(n, dp); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function prettyDate(iso){
+  const d = new Date(iso+"T00:00:00");
+  return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+}
+function seed(){
+  return {
+    settings: { budget: 0, contingencyPct: 12, currency:"INR", syncUrl:"",
+      bankAccounts: DEFAULT_BANK_ACCOUNTS.slice(), paymentModes: DEFAULT_MODES.map(m=>({...m})),
+      paymentTypes: DEFAULT_PTYPES.slice() },
+    vendors: [],
+    payments: [],
+  };
+}
+function vendorStatus(paid, quote){
+  if (!quote) return { key:"noquote", label:"No quote", color:"var(--faint)", soft:"#EFEEE9" };
+  const p = paid / quote;
+  if (p > 1)   return { key:"over",  label:"Over quote", color:"var(--red)", soft:"var(--redSoft)" };
+  if (p >= .9) return { key:"near",  label:"Near quote", color:"var(--amber)", soft:"var(--amberSoft)" };
+  return { key:"ok", label:"On track", color:"var(--green)", soft:"var(--greenSoft)" };
+}
+
+/* settings round-trip: the Sheet's Settings tab is plain key/value, so
+   arrays (bankAccounts) need to travel as a JSON string */
+function settingsForCloud(s){
+  const out = Object.assign({}, s);
+  out.bankAccounts = JSON.stringify(s.bankAccounts||[]);
+  out.paymentModes = JSON.stringify(s.paymentModes||[]);
+  out.paymentTypes = JSON.stringify(s.paymentTypes||[]);
+  return out;
+}
+function settingsFromCloud(s){
+  const out = Object.assign({}, s||{});
+  try{ out.bankAccounts = JSON.parse((s&&s.bankAccounts)||"[]"); }catch(e){ out.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice(); }
+  try{ out.paymentModes = JSON.parse((s&&s.paymentModes)||"[]"); }catch(e){ out.paymentModes = DEFAULT_MODES.map(m=>({...m})); }
+  try{ out.paymentTypes = JSON.parse((s&&s.paymentTypes)||"[]"); }catch(e){ out.paymentTypes = DEFAULT_PTYPES.slice(); }
+  if (!out.bankAccounts.length) out.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice();
+  if (!out.paymentModes.length) out.paymentModes = DEFAULT_MODES.map(m=>({...m}));
+  if (!out.paymentTypes.length) out.paymentTypes = DEFAULT_PTYPES.slice();
+  return out;
+}
+
+/* ---------- cloud sync (Google Sheet via Apps Script web app) ---------- */
+async function cloudCall(url, action, payload){
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ action }, payload || {})),
+    redirect: "follow",
+  });
+  if (!res.ok) throw new Error("Network " + res.status);
+  const data = await res.json();
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let state = null;
+let loaded = false;
+let ui = { tab:"home", modal:null, vendorQuery:"", ledgerFloor:"", ledgerVendor:"",
+  syncStatus:"idle", lastSynced:null, payOverride:false, payReceipt:null, vendorQuoteDoc:null };
+
+async function loadState(){
+  let data = null;
+  try{
+    if (window.storage){
+      const r = await window.storage.get(STORAGE_KEY, true);
+      if (r && r.value) data = JSON.parse(r.value);
+    }
+  }catch(e){ /* first run */ }
+  state = data || seed();
+  // backfill new settings for anyone who already had local data before these fields existed
+  state.settings = state.settings || {};
+  if (!Array.isArray(state.settings.bankAccounts) || state.settings.bankAccounts.length===0)
+    state.settings.bankAccounts = DEFAULT_BANK_ACCOUNTS.slice();
+  if (!Array.isArray(state.settings.paymentModes) || state.settings.paymentModes.length===0)
+    state.settings.paymentModes = DEFAULT_MODES.map(m=>({...m}));
+  if (!Array.isArray(state.settings.paymentTypes) || state.settings.paymentTypes.length===0)
+    state.settings.paymentTypes = DEFAULT_PTYPES.slice();
+  loaded = true;
+}
+async function saveState(){
+  try{ if (window.storage) await window.storage.set(STORAGE_KEY, JSON.stringify(state), true); }
+  catch(e){ console.error("save failed", e); }
+}
+async function update(fn){
+  fn(state);
+  await saveState();
+  render();
+}
+
+function computeDerived(){
+  const paidByVendor = {}, advByVendor = {}, byFloor = {}, byRoom = {};
+  let totalPaid = 0, totalGst = 0;
+  for (const p of state.payments){
+    paidByVendor[p.vendorId] = (paidByVendor[p.vendorId]||0) + p.amount;
+    if (p.type === "Advance") advByVendor[p.vendorId] = (advByVendor[p.vendorId]||0) + p.amount;
+    totalPaid += p.amount;
+    totalGst += (p.gst||0);
+    if (p.floor) byFloor[p.floor] = (byFloor[p.floor]||0) + p.amount;
+    const rk = (p.floor||"?")+" · "+(p.room||"General");
+    byRoom[rk] = (byRoom[rk]||0) + p.amount;
+  }
+  const totalQuote = state.vendors.reduce((s,v)=>s+(v.quote||0),0);
+  const outstanding = state.vendors.reduce((s,v)=>{
+    const q=v.quote||0, pd=paidByVendor[v.id]||0; return s + Math.max(0, q-pd);
+  },0);
+  const contingency = Math.round(totalQuote * (state.settings.contingencyPct/100));
+  const today = todayISO();
+  const spentToday = state.payments.filter(p=>p.date===today).reduce((s,p)=>s+p.amount,0);
+  return { paidByVendor, advByVendor, byFloor, byRoom, totalPaid, totalQuote, outstanding, contingency, spentToday, totalGst };
+}
+
+/* ---------- cloud sync actions ---------- */
+function okSync(){ ui.syncStatus="ok"; ui.lastSynced=Date.now(); }
+async function pushVendors(url){
+  url = url || state.settings.syncUrl; if (!url) return;
+  ui.syncStatus="syncing"; if (ui.tab==="more") refreshSyncStatusUI();
+  try{ await cloudCall(url,"saveVendors",{vendors:state.vendors, settings:settingsForCloud(state.settings)}); okSync(); }
+  catch(e){ ui.syncStatus="error"; }
+  if (ui.tab==="more") refreshSyncStatusUI();
+}
+async function pushPayment(payment){
+  const url = state.settings.syncUrl; if (!url) return null;
+  ui.syncStatus="syncing";
+  try{ const res = await cloudCall(url,"addPayment",{payment}); okSync(); return res; }
+  catch(e){ ui.syncStatus="error"; return null; }
+}
+async function deletePaymentsCloud(ids){
+  const url = state.settings.syncUrl; if (!url || !ids.length) return;
+  try{ for (const id of ids) await cloudCall(url,"deletePayment",{id}); }catch(e){}
+}
+async function pullAll(url){
+  url = url || state.settings.syncUrl; if (!url) return;
+  ui.syncStatus="syncing"; if (ui.tab==="more") refreshSyncStatusUI();
+  try{
+    const cloud = await cloudCall(url,"load",{});
+    const cloudPayments = (cloud.payments||[]).map(p=> Object.assign({}, p, {synced:true}));
+    const cloudIds = new Set(cloudPayments.map(p=>p.id));
+    // Keep ONLY local payments that were never synced (true offline additions).
+    // A local payment that IS marked synced but is no longer in the sheet was
+    // deleted there on purpose — so we drop it instead of re-uploading it.
+    const pendingLocal = state.payments.filter(p=> !cloudIds.has(p.id) && !p.synced);
+    for (const p of pendingLocal){
+      try{ await cloudCall(url,"addPayment",{payment:p}); p.synced = true; }catch(e){}
+    }
+    state.payments = [...cloudPayments, ...pendingLocal];
+    if (cloud.vendors && cloud.vendors.length) state.vendors = cloud.vendors;
+    state.settings = Object.assign({}, state.settings, settingsFromCloud(cloud.settings||{}), {syncUrl:url});
+    await saveState();
+    okSync();
+    render();
+  }catch(e){ ui.syncStatus="error"; if (ui.tab==="more") refreshSyncStatusUI(); }
+}
+async function connectCloud(rawUrl){
+  const url = (rawUrl||"").trim(); if (!url) return;
+  state.settings.syncUrl = url;
+  await saveState();
+  await pushVendors(url);
+  await pullAll(url);
+  render();
+}
+
+/* ============================================================
+   RENDER — top level
+   ============================================================ */
+function render(){
+  try{
+    const d = computeDerived();
+    const titles = { home:"Site Ledger", vendors:"Agencies", ledger:"All Payments", more:"Settings & Backup" };
+    let body = "";
+    if (ui.tab==="home") body = renderHome(d);
+    else if (ui.tab==="vendors") body = renderVendors(d);
+    else if (ui.tab==="ledger") body = renderLedger(d);
+    else if (ui.tab==="more") body = renderMore(d);
+
+    document.getElementById("app").innerHTML =
+      '<div class="topbar"><div class="between">'+
+        '<div><div class="kick">Parikh Residence · Krushna Aranaya</div><h1>'+titles[ui.tab]+'</h1></div>'+
+        '<div style="text-align:right"><div class="tiny muted">Spent today</div>'+
+        '<div class="num" style="font-weight:700">'+rupee(d.spentToday)+'</div></div>'+
+      '</div></div>'+
+      body +
+      '<div class="nav">'+
+        '<button data-tab="home" class="'+(ui.tab==="home"?"on":"")+'">'+icon("home",22)+'<span>Home</span></button>'+
+        '<button data-tab="vendors" class="'+(ui.tab==="vendors"?"on":"")+'">'+icon("users",22)+'<span>Agencies</span></button>'+
+        '<button class="add" id="navAddBtn"><span class="addDisc">'+icon("plus",22,"#fff")+'</span><span>Add</span></button>'+
+        '<button data-tab="ledger" class="'+(ui.tab==="ledger"?"on":"")+'">'+icon("scroll",22)+'<span>Ledger</span></button>'+
+        '<button data-tab="more" class="'+(ui.tab==="more"?"on":"")+'">'+icon("sliders",22)+'<span>More</span></button>'+
+      '</div>'+
+      '<div id="modalRoot"></div>';
+
+    document.querySelectorAll("[data-tab]").forEach(b=>{
+      b.onclick = ()=>{ ui.tab = b.getAttribute("data-tab"); ui.modal=null; render(); };
+    });
+    document.getElementById("navAddBtn").onclick = openPayModal;
+
+    if (ui.tab==="home") attachHomeHandlers(d);
+    if (ui.tab==="vendors") attachVendorsHandlers(d);
+    if (ui.tab==="ledger") attachLedgerHandlers(d);
+    if (ui.tab==="more") attachMoreHandlers(d);
+
+    if (ui.modal) renderModal(d);
+  }catch(err){
+    document.getElementById("app").innerHTML = '<div class="errBox">Something went wrong rendering the app:\n\n'+esc(err.message||String(err))+'</div>';
+    console.error(err);
+  }
+}
+
+/* ============================ HOME ============================ */
+function renderHome(d){
+  const budget = state.settings.budget || 0;
+  const grand = d.totalQuote + d.contingency;
+  const usedPct = budget ? Math.min(100, Math.round(d.totalPaid/budget*100)) : 0;
+  const floorTotals = FLOORS.map(f => ({ ...f, spent: d.byFloor[f.id]||0 }));
+  const maxFloor = Math.max(1, ...floorTotals.map(f=>f.spent));
+
+  const alerts = state.vendors.map(v => {
+    const paid = d.paidByVendor[v.id]||0;
+    const st = vendorStatus(paid, v.quote);
+    return { v, paid, st };
+  }).filter(x => x.st.key==="over" || x.st.key==="near");
+
+  const recent = [...state.payments].sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0,4);
+
+  let html = '<div class="wrap">';
+
+  html += '<div class="hero"><div class="tiny" style="color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase">Total paid to date</div>'+
+    '<div class="big num">'+rupee(d.totalPaid)+'</div>';
+  if (budget>0){
+    html += '<div style="margin-top:8px"><div class="bar" style="background:rgba(255,255,255,.15)">'+
+      '<span style="width:'+usedPct+'%;background:'+(usedPct>=100?"var(--red)":"#fff")+'"></span></div>'+
+      '<div class="tiny" style="color:rgba(255,255,255,.6);margin-top:5px">'+usedPct+'% of '+rupee(budget)+' budget</div></div>';
+  }
+  html += '<div class="heroGrid">'+
+    '<div class="cell"><div class="k">Quoted (committed)</div><div class="v num">'+rupee(d.totalQuote)+'</div></div>'+
+    '<div class="cell"><div class="k">Still to pay</div><div class="v num">'+rupee(d.outstanding)+'</div></div>'+
+    '<div class="cell"><div class="k">Contingency '+state.settings.contingencyPct+'%</div><div class="v num">'+rupee(d.contingency)+'</div></div>'+
+    '<div class="cell"><div class="k">Quote + buffer</div><div class="v num">'+rupee(grand)+'</div></div>'+
+  '</div></div>';
+
+  if (alerts.length>0){
+    html += '<div class="card" style="margin-top:12px;border-color:var(--redSoft)"><div class="label" style="color:var(--red);margin-bottom:8px">Needs attention</div>';
+    alerts.forEach(({v,paid,st})=>{
+      html += '<div class="warn" style="background:'+st.soft+';color:'+st.color+';margin-top:8px">'+icon("alert",16)+
+        '<div><b>'+esc(v.name)+'</b> — paid '+rupee(paid)+' of '+rupee(v.quote)+' quote ('+st.label+').</div></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="card" style="margin-top:12px"><div class="between" style="margin-bottom:6px">'+
+    '<div class="label">Spend by floor</div><button class="tiny" id="homeToLedger" style="color:var(--blue);font-weight:700">View ledger '+icon("chevron",11)+'</button></div>';
+  floorTotals.forEach(f=>{
+    const pct = Math.max(f.spent?6:0, f.spent/maxFloor*100);
+    html += '<div class="floorRow"><div class="lvl"><div class="code">'+f.code+'</div><div class="mm num">'+f.level+'</div></div>'+
+      '<div class="bar"><span style="width:'+pct+'%;background:'+(f.id==="common"?"var(--blue)":"var(--ink)")+'"></span></div>'+
+      '<div class="num tiny" style="min-width:64px;text-align:right;font-weight:600">'+rupee(f.spent)+'</div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="card" style="margin-top:12px"><div class="label" style="margin-bottom:4px">Recent payments</div>';
+  if (recent.length===0){
+    html += '<div class="tiny muted" style="padding:10px 0">No payments yet. Tap <b>Add</b> to record the first one.</div>';
+  }
+  recent.forEach(p=>{
+    const v = state.vendors.find(x=>x.id===p.vendorId);
+    html += '<div class="led"><div class="between"><div><div style="font-weight:600">'+esc(v?v.name:"—")+'</div>'+
+      '<div class="tiny muted">'+prettyDate(p.date)+' · '+esc(p.mode)+(p.floor?" · "+FLOORS.find(f=>f.id===p.floor).code:"")+'</div></div>'+
+      '<div class="num" style="font-weight:700">'+rupee(p.amount)+'</div></div></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+function attachHomeHandlers(d){
+  const b = document.getElementById("homeToLedger");
+  if (b) b.onclick = ()=>{ ui.tab="ledger"; render(); };
+}
+
+/* ========================== VENDORS ========================== */
+function filteredVendorList(){
+  const q = ui.vendorQuery.toLowerCase();
+  return state.vendors.filter(v => v.name.toLowerCase().includes(q) || (v.trade||"").toLowerCase().includes(q));
+}
+function renderVendorListItems(d){
+  const list = filteredVendorList();
+  if (list.length===0) return '<div class="tiny muted" style="padding:6px 0">'+(ui.vendorQuery?"No agencies match.":"No agencies yet — add one below, or when recording a payment.")+'</div>';
+  return list.map(v=>{
+    const paid = d.paidByVendor[v.id]||0;
+    const st = vendorStatus(paid, v.quote);
+    const pct = v.quote ? Math.min(100, paid/v.quote*100) : 0;
+    const left = Math.max(0,(v.quote||0)-paid);
+    return '<div class="vItem" data-vendor-id="'+v.id+'" role="button" style="cursor:pointer">'+
+      '<div class="between"><div style="min-width:0"><div style="font-weight:700">'+esc(v.name)+'</div>'+
+      '<div class="tiny muted">'+esc(v.trade||"—")+'</div></div>'+
+      '<div class="pill" style="background:'+st.soft+';color:'+st.color+'">'+st.label+'</div></div>'+
+      '<div class="bar" style="margin-top:10px"><span style="width:'+pct+'%;background:'+st.color+'"></span></div>'+
+      '<div class="between" style="margin-top:6px"><div class="tiny num muted">'+rupee(paid)+' paid'+(v.quote?" of "+rupee(v.quote):"")+'</div>'+
+      (v.quote>0 ? '<div class="tiny num" style="color:'+st.color+';font-weight:600">'+rupee(left)+' left</div>' : '')+
+      '</div></div>';
+  }).join("");
+}
+function renderVendors(d){
+  return '<div class="wrap">'+
+    '<div class="row" style="margin-bottom:12px"><div class="control row" style="padding:10px 12px;gap:8px">'+
+    icon("search",16,"var(--faint)")+
+    '<input id="vendorSearchInput" value="'+esc(ui.vendorQuery)+'" placeholder="Search agency or trade" '+
+    'style="border:none;outline:none;flex:1;background:transparent"></div></div>'+
+    '<div class="card" id="vendorListArea">'+renderVendorListItems(d)+'</div>'+
+    '<button class="btn ghost" style="margin-top:14px" id="addVendorBtn">'+icon("plusCircle",18)+' Add agency</button>'+
+    '</div>';
+}
+function attachVendorListItemHandlers(){
+  document.querySelectorAll("[data-vendor-id]").forEach(el=>{
+    el.onclick = ()=>{ const v = state.vendors.find(x=>x.id===el.getAttribute("data-vendor-id")); openVendorDetail(v); };
+  });
+}
+function attachVendorsHandlers(d){
+  const search = document.getElementById("vendorSearchInput");
+  search.oninput = (e)=>{
+    ui.vendorQuery = e.target.value;
+    document.getElementById("vendorListArea").innerHTML = renderVendorListItems(computeDerived());
+    attachVendorListItemHandlers();
+  };
+  document.getElementById("addVendorBtn").onclick = ()=> openVendorForm(null);
+  attachVendorListItemHandlers();
+}
+
+/* ========================== LEDGER ========================== */
+function renderLedger(d){
+  let pays = [...state.payments];
+  if (ui.ledgerFloor) pays = pays.filter(p=>p.floor===ui.ledgerFloor);
+  if (ui.ledgerVendor) pays = pays.filter(p=>p.vendorId===ui.ledgerVendor);
+  pays.sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const total = pays.reduce((s,p)=>s+p.amount,0);
+  const byDay = {};
+  pays.forEach(p=>{ (byDay[p.date]=byDay[p.date]||[]).push(p); });
+  const days = Object.keys(byDay).sort((a,b)=>b.localeCompare(a));
+
+  let html = '<div class="wrap"><div class="two" style="margin-bottom:12px">'+
+    '<select class="control" id="ledgerFloorSel"><option value="">All floors</option>'+
+    FLOORS.map(f=>'<option value="'+f.id+'"'+(ui.ledgerFloor===f.id?" selected":"")+'>'+esc(f.name)+'</option>').join("")+
+    '</select>'+
+    '<select class="control" id="ledgerVendorSel"><option value="">All agencies</option>'+
+    state.vendors.map(v=>'<option value="'+v.id+'"'+(ui.ledgerVendor===v.id?" selected":"")+'>'+esc(v.name)+'</option>').join("")+
+    '</select></div>';
+
+  html += '<div class="card between" style="padding:12px 16px"><div class="label">Shown total</div>'+
+    '<div class="num" style="font-weight:700;font-size:18px">'+rupee(total)+'</div></div>';
+
+  if (days.length===0){
+    html += '<div class="empty">'+icon("scroll",28)+'<div>No payments to show.</div></div>';
+  }
+  days.forEach(day=>{
+    const dayTotal = byDay[day].reduce((s,p)=>s+p.amount,0);
+    html += '<div class="card" style="margin-top:12px"><div class="dayhead"><span>'+prettyDate(day)+'</span><span class="num">'+rupee(dayTotal)+'</span></div>';
+    byDay[day].forEach(p=>{
+      const v = state.vendors.find(x=>x.id===p.vendorId);
+      const fl = FLOORS.find(f=>f.id===p.floor);
+      html += '<div class="led"><div class="between"><div style="min-width:0"><div style="font-weight:600">'+esc(v?v.name:"—")+'</div>'+
+        '<div class="tiny muted">'+esc(p.type)+' · '+esc(p.mode)+(p.bankAccount?" ("+esc(p.bankAccount)+")":"")+(fl?" · "+fl.code:"")+(p.room?" / "+esc(p.room):"")+(p.work&&p.work!=="Both"?" · "+esc(p.work):"")+(p.invoiceNumber?" · Inv# "+esc(p.invoiceNumber):"")+'</div>'+
+        (p.note? '<div class="tiny" style="color:var(--faint);margin-top:2px">'+esc(p.note)+'</div>' : '')+
+        (p.billRef? '<a href="'+esc(p.billRef)+'" target="_blank" rel="noreferrer" class="tiny row" style="color:var(--blue);font-weight:600;margin-top:3px;text-decoration:none">'+icon("extLink",12)+' View bill</a>' : '')+
+        '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0"><div class="num" style="font-weight:700">'+rupee(p.amount)+'</div>'+
+        '<button class="delpay" data-delpay="'+p.id+'" aria-label="Delete payment" style="border:none;background:none;padding:2px 4px;color:var(--faint);cursor:pointer">'+icon("trash",15)+'</button>'+
+        '</div></div></div>';
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+function attachLedgerHandlers(d){
+  document.getElementById("ledgerFloorSel").onchange = (e)=>{ ui.ledgerFloor = e.target.value; render(); };
+  document.getElementById("ledgerVendorSel").onchange = (e)=>{ ui.ledgerVendor = e.target.value; render(); };
+  document.querySelectorAll("[data-delpay]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.getAttribute("data-delpay");
+      const p = state.payments.find(x=>x.id===id); if (!p) return;
+      const v = state.vendors.find(x=>x.id===p.vendorId);
+      if (!confirm("Delete this payment"+(v?" to "+v.name:"")+" of "+rupee(p.amount)+"?\nThis removes it from both phones and the sheet, and can't be undone.")) return;
+      state.payments = state.payments.filter(x=>x.id!==id);
+      await saveState();
+      deletePaymentsCloud([id]);
+      render();
+    };
+  });
+}
+
+/* ========================== MORE ========================== */
+function syncLabelText(){
+  const connected = !!state.settings.syncUrl;
+  if (!connected) return "Not connected — data stays on this phone only.";
+  if (ui.syncStatus==="syncing") return "Syncing…";
+  if (ui.syncStatus==="error") return "Couldn't reach the sheet. Check the URL, then tap Sync now.";
+  if (ui.lastSynced) return "Synced ✓ at " + new Date(ui.lastSynced).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"});
+  return "Connected.";
+}
+function syncLabelColor(){
+  if (ui.syncStatus==="error") return "var(--red)";
+  if (state.settings.syncUrl && ui.syncStatus==="ok") return "var(--green)";
+  return "var(--muted)";
+}
+function refreshSyncStatusUI(){
+  const el = document.getElementById("syncStatusLine");
+  if (el){ el.textContent = syncLabelText(); el.style.color = syncLabelColor(); }
+}
+function renderBankAccountList(){
+  const accounts = state.settings.bankAccounts||[];
+  if (accounts.length===0) return '<div class="tiny muted">None added yet.</div>';
+  return accounts.map((a,i)=>
+    '<div class="between" style="padding:8px 0'+(i?";border-top:1px solid var(--line)":"")+'">'+
+    '<div class="tiny" style="font-weight:600">'+esc(a)+'</div>'+
+    '<button class="iconbtn" data-bank-idx="'+i+'" style="width:28px;height:28px">'+icon("x",14)+'</button></div>'
+  ).join("");
+}
+function renderModeList(){
+  const modes = state.settings.paymentModes||[];
+  if (modes.length===0) return '<div class="tiny muted">None added yet.</div>';
+  return modes.map((m,i)=>
+    '<div class="between" style="padding:8px 0'+(i?";border-top:1px solid var(--line)":"")+'">'+
+    '<label class="row tiny" style="font-weight:600;gap:8px"><input type="checkbox" data-mode-bank-idx="'+i+'" '+(m.bank?"checked":"")+' style="width:16px;height:16px">'+
+    esc(m.name)+' <span class="tiny muted" style="font-weight:400">(needs bank account)</span></label>'+
+    '<button class="iconbtn" data-mode-idx="'+i+'" style="width:28px;height:28px">'+icon("x",14)+'</button></div>'
+  ).join("");
+}
+function renderTypeList(){
+  const types = state.settings.paymentTypes||[];
+  if (types.length===0) return '<div class="tiny muted">None added yet.</div>';
+  return types.map((t,i)=>
+    '<div class="between" style="padding:8px 0'+(i?";border-top:1px solid var(--line)":"")+'">'+
+    '<div class="tiny" style="font-weight:600">'+esc(t)+'</div>'+
+    '<button class="iconbtn" data-type-idx="'+i+'" style="width:28px;height:28px">'+icon("x",14)+'</button></div>'
+  ).join("");
+}
+function renderMore(d){
+  const connected = !!state.settings.syncUrl;
+  return '<div class="wrap">'+
+    '<div class="card"><div class="label" style="margin-bottom:4px">Budget & buffer</div>'+
+      '<div class="field"><span class="label">Overall budget (₹)</span>'+
+      '<input class="control num" inputmode="decimal" id="budgetInput" value="'+esc(state.settings.budget||"")+'" placeholder="e.g. 25000000"></div>'+
+      '<div class="field"><span class="label">Contingency %</span>'+
+      '<input class="control num" inputmode="decimal" id="contInput" value="'+esc(state.settings.contingencyPct)+'"></div>'+
+      '<button class="btn" style="margin-top:16px" id="saveSettingsBtn">'+icon("check",18)+' Save</button></div>'+
+
+    '<div class="card"><div class="label" style="margin-bottom:8px">Bank accounts</div>'+
+      '<div class="tiny muted" style="margin-bottom:10px">Add the accounts you pay from — when you pick "Bank Transfer" as the mode, you\'ll choose one of these.</div>'+
+      '<div id="bankAccountList">'+renderBankAccountList()+'</div>'+
+      '<div class="row" style="margin-top:10px;gap:8px">'+
+      '<input class="control" id="newBankAccountInput" placeholder="e.g. HDFC ...4521" style="flex:1">'+
+      '<button class="btn ghost" id="addBankAccountBtn" style="width:auto;padding:12px 16px">Add</button></div></div>'+
+
+    '<div class="card"><div class="label" style="margin-bottom:8px">Payment modes</div>'+
+      '<div class="tiny muted" style="margin-bottom:10px">Tick "needs bank account" for any mode that should prompt you to pick which account it went from.</div>'+
+      '<div id="modeList">'+renderModeList()+'</div>'+
+      '<div class="row" style="margin-top:10px;gap:8px">'+
+      '<input class="control" id="newModeInput" placeholder="e.g. NEFT" style="flex:1">'+
+      '<button class="btn ghost" id="addModeBtn" style="width:auto;padding:12px 16px">Add</button></div></div>'+
+
+    '<div class="card"><div class="label" style="margin-bottom:8px">Payment types</div>'+
+      '<div id="typeList">'+renderTypeList()+'</div>'+
+      '<div class="row" style="margin-top:10px;gap:8px">'+
+      '<input class="control" id="newTypeInput" placeholder="e.g. Reimbursement" style="flex:1">'+
+      '<button class="btn ghost" id="addTypeBtn" style="width:auto;padding:12px 16px">Add</button></div></div>'+
+
+    '<div class="card"><div class="row" style="margin-bottom:8px">'+icon("cloud",16,connected?"var(--green)":"var(--faint)")+
+      '<div class="label" style="margin:0">Cloud sync — both phones</div></div>'+
+      '<div class="tiny muted" style="margin-bottom:12px;line-height:1.5">Paste the Web App URL from your Google Sheet. Enter the same URL on the other iPhone and you both stay in sync.</div>'+
+      '<input class="control" id="syncUrlInput" value="'+esc(state.settings.syncUrl||"")+'" placeholder="https://script.google.com/…/exec" style="font-size:13px">'+
+      '<button class="btn" style="margin-top:12px" id="connectSyncBtn">'+icon("refresh",16)+' Connect & sync</button>'+
+      (connected? '<button class="btn ghost" style="margin-top:10px" id="syncNowBtn">'+icon("refresh",16)+' Sync now</button>' : '')+
+      '<div class="tiny" id="syncStatusLine" style="margin-top:10px;font-weight:600;color:'+syncLabelColor()+'">'+syncLabelText()+'</div></div>'+
+
+    '<div class="card"><div class="label" style="margin-bottom:8px">Backup & transfer</div>'+
+      '<div class="tiny muted" style="margin-bottom:12px;line-height:1.5">Data is saved on this device automatically. Export a file to back it up or to load the same data onto the other iPhone.</div>'+
+      '<button class="btn ghost" id="exportBtn">'+icon("download",16)+' Export backup file</button>'+
+      '<button class="btn ghost" style="margin-top:10px" id="importBtnLabel">'+icon("upload",16)+' Import backup file</button>'+
+      '<input type="file" accept="application/json" id="importFileInput" style="display:none"></div>'+
+
+    '<div class="card"><div class="label" style="margin-bottom:8px">About</div>'+
+      '<div class="tiny muted" style="line-height:1.6">Parikh Residence — Krushna Aranaya · Ahmedabad (G+3 + OHWT). Floors and rooms are pre-loaded from your working plan. '+
+      'Payments are blocked from exceeding an agency’s quote; advances are capped per agency; retention is flagged so you always hold the last slice back until sign-off.</div></div>'+
+    '</div>';
+}
+function attachMoreHandlers(d){
+  document.getElementById("saveSettingsBtn").onclick = ()=>{
+    const budget = Number(document.getElementById("budgetInput").value)||0;
+    const cont = Number(document.getElementById("contInput").value)||0;
+    update(n=>{ n.settings.budget=budget; n.settings.contingencyPct=cont; }).then(()=> pushVendors());
+  };
+  document.getElementById("addBankAccountBtn").onclick = ()=>{
+    const input = document.getElementById("newBankAccountInput");
+    const name = input.value.trim(); if (!name) return;
+    update(n=>{ n.settings.bankAccounts = (n.settings.bankAccounts||[]).concat([name]); }).then(()=> pushVendors());
+  };
+  document.querySelectorAll("[data-bank-idx]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.getAttribute("data-bank-idx"));
+      update(n=>{ n.settings.bankAccounts = (n.settings.bankAccounts||[]).filter((_,i)=>i!==idx); }).then(()=> pushVendors());
+    };
+  });
+
+  document.getElementById("addModeBtn").onclick = ()=>{
+    const input = document.getElementById("newModeInput");
+    const name = input.value.trim(); if (!name) return;
+    update(n=>{ n.settings.paymentModes = (n.settings.paymentModes||[]).concat([{name, bank:false}]); }).then(()=> pushVendors());
+  };
+  document.querySelectorAll("[data-mode-idx]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.getAttribute("data-mode-idx"));
+      update(n=>{ n.settings.paymentModes = (n.settings.paymentModes||[]).filter((_,i)=>i!==idx); }).then(()=> pushVendors());
+    };
+  });
+  document.querySelectorAll("[data-mode-bank-idx]").forEach(chk=>{
+    chk.onchange = ()=>{
+      const idx = Number(chk.getAttribute("data-mode-bank-idx"));
+      update(n=>{ if (n.settings.paymentModes[idx]) n.settings.paymentModes[idx].bank = chk.checked; }).then(()=> pushVendors());
+    };
+  });
+
+  document.getElementById("addTypeBtn").onclick = ()=>{
+    const input = document.getElementById("newTypeInput");
+    const name = input.value.trim(); if (!name) return;
+    update(n=>{ n.settings.paymentTypes = (n.settings.paymentTypes||[]).concat([name]); }).then(()=> pushVendors());
+  };
+  document.querySelectorAll("[data-type-idx]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.getAttribute("data-type-idx"));
+      update(n=>{ n.settings.paymentTypes = (n.settings.paymentTypes||[]).filter((_,i)=>i!==idx); }).then(()=> pushVendors());
+    };
+  });
+
+  document.getElementById("connectSyncBtn").onclick = ()=>{
+    const url = document.getElementById("syncUrlInput").value;
+    connectCloud(url);
+  };
+  const syncNowBtn = document.getElementById("syncNowBtn");
+  if (syncNowBtn) syncNowBtn.onclick = ()=> pullAll();
+  document.getElementById("exportBtn").onclick = ()=>{
+    const blob = new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "psp-house-"+todayISO()+".json"; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const fileInput = document.getElementById("importFileInput");
+  document.getElementById("importBtnLabel").onclick = ()=> fileInput.click();
+  fileInput.onchange = (e)=>{
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        const data = JSON.parse(r.result);
+        if (data.vendors && data.payments){ state = data; saveState(); render(); }
+      }catch(err){ alert("That file could not be read as a valid backup."); }
+    };
+    r.readAsText(file);
+  };
+}
+
+/* ========================= MODAL SHELL ========================= */
+function closeModal(){ ui.modal = null; render(); }
+function renderModal(d){
+  const root = document.getElementById("modalRoot");
+  let inner = "";
+  if (ui.modal.type==="pay") inner = renderPayForm(d);
+  else if (ui.modal.type==="vendorForm") inner = renderVendorForm(d);
+  else if (ui.modal.type==="vendorDetail") inner = renderVendorDetail(d);
+  root.innerHTML = '<div class="scrim" id="scrimEl"><div class="sheet" id="sheetEl"><div class="grab"></div>'+inner+'</div></div>';
+  document.getElementById("scrimEl").onclick = closeModal;
+  document.getElementById("sheetEl").onclick = (e)=> e.stopPropagation();
+  if (ui.modal.type==="pay") attachPayFormHandlers(d);
+  else if (ui.modal.type==="vendorForm") attachVendorFormHandlers(d);
+  else if (ui.modal.type==="vendorDetail") attachVendorDetailHandlers(d);
+}
+
+/* ====================== VENDOR DETAIL ======================= */
+function openVendorDetail(v){ ui.modal = { type:"vendorDetail", vendorId:v.id }; render(); }
+function renderVendorDetail(d){
+  const vendor = state.vendors.find(v=>v.id===ui.modal.vendorId);
+  if (!vendor) return '<div class="sheetHead"><h2>Not found</h2></div>';
+  const paid = d.paidByVendor[vendor.id]||0;
+  const adv = d.advByVendor[vendor.id]||0;
+  const st = vendorStatus(paid, vendor.quote);
+  const left = Math.max(0,(vendor.quote||0)-paid);
+  const retentionHold = Math.round((vendor.quote||0)*(vendor.retentionPct||0)/100);
+  const pays = state.payments.filter(p=>p.vendorId===vendor.id).sort((a,b)=> b.date.localeCompare(a.date));
+
+  let html = '<div class="sheetHead"><h2>'+esc(vendor.name)+'</h2><div class="row">'+
+    '<button class="iconbtn" id="vdEditBtn">'+icon("pencil",16)+'</button>'+
+    '<button class="iconbtn" id="vdCloseBtn">'+icon("x",18)+'</button></div></div>';
+
+  html += '<div class="card"><div class="between"><div class="tiny muted">'+esc(vendor.trade||"")+'</div>'+
+    '<div class="pill" style="background:'+st.soft+';color:'+st.color+'">'+st.label+'</div></div>'+
+    '<div class="two" style="margin-top:12px">'+
+    metric("Quote", rupee(vendor.quote))+
+    metric("Paid", rupee(paid))+
+    metric("Outstanding", rupee(left), true, left>0?"var(--blue)":"var(--green)")+
+    metric("Advance given", rupee(adv))+
+    '</div>';
+  if (retentionHold>0){
+    html += '<div class="warn" style="background:var(--blueSoft);color:var(--blue);margin-top:12px">'+icon("shield",16)+
+      '<div>Hold back '+rupee(retentionHold)+' retention ('+vendor.retentionPct+'%) until sign-off.</div></div>';
+  }
+  if (vendor.phone){
+    html += '<a href="tel:'+esc(vendor.phone.replace(/\s/g,""))+'" class="row tiny" style="margin-top:12px;color:var(--blue);font-weight:600;text-decoration:none">'+
+      icon("phone",14)+' '+esc(vendor.phone)+'</a>';
+  }
+  if (vendor.quoteDocUrl){
+    html += '<a href="'+esc(vendor.quoteDocUrl)+'" target="_blank" class="row tiny" style="margin-top:10px;color:var(--blue);font-weight:600;text-decoration:none">'+
+      icon("scroll",14)+' View quotation document \u2197</a>';
+  }
+  html += '</div>';
+
+  if (vendor.quoteHistory && vendor.quoteHistory.length>0){
+    html += '<div class="card"><div class="label" style="margin-bottom:6px">Quote revisions</div>';
+    vendor.quoteHistory.forEach((h,i)=>{
+      html += '<div class="between" style="padding:6px 0'+(i?";border-top:1px solid var(--line)":"")+'">'+
+        '<div class="tiny muted">'+prettyDate(h.date)+(h.note?" · "+esc(h.note):"")+'</div>'+
+        '<div class="num tiny" style="font-weight:600">'+rupee(h.amount)+'</div></div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="card"><div class="label" style="margin-bottom:6px">Payments ('+pays.length+')</div>';
+  if (pays.length===0) html += '<div class="tiny muted">None yet.</div>';
+  pays.forEach(p=>{
+    const fl = FLOORS.find(f=>f.id===p.floor);
+    html += '<div class="led"><div class="between"><div><div style="font-weight:600;font-size:14px">'+esc(p.type)+'</div>'+
+      '<div class="tiny muted">'+prettyDate(p.date)+' · '+esc(p.mode)+(p.bankAccount?" ("+esc(p.bankAccount)+")":"")+(fl?" · "+esc(fl.name):"")+(p.room?" / "+esc(p.room):"")+(p.invoiceNumber?" · Inv# "+esc(p.invoiceNumber):"")+'</div>'+
+      (p.billRef? '<a href="'+esc(p.billRef)+'" target="_blank" rel="noreferrer" class="tiny row" style="color:var(--blue);font-weight:600;margin-top:3px;text-decoration:none">'+icon("extLink",12)+' View bill</a>' : '')+
+      '</div><div class="num" style="font-weight:700">'+rupee(p.amount)+'</div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function metric(k,v,strong,color){
+  return '<div><div class="label">'+k+'</div><div class="num" style="font-size:'+(strong?18:16)+'px;font-weight:'+(strong?700:600)+';color:'+(color||"var(--ink)")+';margin-top:2px">'+v+'</div></div>';
+}
+function attachVendorDetailHandlers(d){
+  const vendor = state.vendors.find(v=>v.id===ui.modal.vendorId);
+  document.getElementById("vdCloseBtn").onclick = closeModal;
+  document.getElementById("vdEditBtn").onclick = ()=> openVendorForm(vendor);
+}
+
+/* ====================== VENDOR FORM ========================= */
+function openVendorForm(vendor){ ui.vendorQuoteDoc = null; ui.modal = { type:"vendorForm", vendorId: vendor?vendor.id:null }; render(); }
+function renderVendorForm(d){
+  const isNew = !ui.modal.vendorId;
+  const vendor = isNew ? null : state.vendors.find(v=>v.id===ui.modal.vendorId);
+  const f = isNew
+    ? { name:"", trade:TRADES[0], quote:"", advanceCapPct:10, retentionPct:5, gstPct:18, phone:"", note:"" }
+    : { name:vendor.name, trade:vendor.trade, quote:vendor.quote||"", advanceCapPct:vendor.advanceCapPct||0,
+        retentionPct:vendor.retentionPct||0, gstPct:vendor.gstPct||0, phone:vendor.phone||"", note:vendor.note||"" };
+
+  let html = '<div class="sheetHead"><h2>'+(isNew?"Add agency":"Edit agency")+'</h2>'+
+    '<button class="iconbtn" id="vfCloseBtn">'+icon("x",18)+'</button></div>';
+
+  html += '<div class="field"><span class="label">Agency / vendor name</span>'+
+    '<input class="control" id="vfName" value="'+esc(f.name)+'" placeholder="e.g. Sharma Plumbing"></div>';
+  html += '<div class="field"><span class="label">Trade</span><select class="control" id="vfTrade">'+
+    TRADES.map(t=>'<option'+(t===f.trade?" selected":"")+'>'+esc(t)+'</option>').join("")+'</select></div>';
+  html += '<div class="field"><span class="label">Agreed quote (₹)</span>'+
+    '<input class="control num" inputmode="decimal" id="vfQuote" value="'+esc(f.quote)+'" placeholder="0"></div>';
+  html += '<div class="field" id="vfReviseWrap" style="display:none"><span class="label">Reason for revision (saved to history)</span>'+
+    '<input class="control" id="vfReviseNote" placeholder="e.g. added terrace waterproofing"></div>';
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Advance cap %</span><input class="control num" inputmode="decimal" id="vfAdvCap" value="'+esc(f.advanceCapPct)+'"></div>'+
+    '<div><span class="label">Retention %</span><input class="control num" inputmode="decimal" id="vfRetention" value="'+esc(f.retentionPct)+'"></div></div>';
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">GST %</span><input class="control num" inputmode="decimal" id="vfGst" value="'+esc(f.gstPct)+'"></div>'+
+    '<div><span class="label">Phone</span><input class="control" inputmode="tel" id="vfPhone" value="'+esc(f.phone)+'" placeholder="+91…"></div></div>';
+
+  const vfCloudOn = !!state.settings.syncUrl;
+  const vfExistingDoc = (!isNew && vendor.quoteDocUrl) ? vendor.quoteDocUrl : "";
+  html += '<div class="field"><span class="label">Quotation document'+(vfCloudOn?" (photo or PDF)":"")+'</span>';
+  if (vfCloudOn){
+    html += '<label class="btn ghost" style="margin-top:2px">'+icon("upload",16)+' <span id="vfDocLabel">'+(vfExistingDoc?"Replace quotation":"Attach quotation")+'</span>'+
+      '<input type="file" accept="image/*,application/pdf" id="vfDocInput" style="display:none"></label>'+
+      '<div id="vfDocPreview">'+(vfExistingDoc?'<div class="tiny" style="margin-top:8px"><a href="'+esc(vfExistingDoc)+'" target="_blank" style="color:var(--blue);font-weight:700">View current quotation \u2197</a></div>':'')+'</div>';
+  }else{
+    html += '<div class="tiny muted">Connect Cloud sync (More tab) to attach and store quotation files.</div>';
+  }
+  html += '</div>';
+
+  html += '<button class="btn" style="margin-top:20px" id="vfSaveBtn">'+icon("check",18)+' '+(isNew?"Add agency":"Save changes")+'</button>';
+  if (!isNew) html += '<button class="btn danger" style="margin-top:10px" id="vfDeleteBtn">'+icon("trash",16)+' Delete agency & its payments</button>';
+  return html;
+}
+function attachVendorFormHandlers(d){
+  const isNew = !ui.modal.vendorId;
+  const vendor = isNew ? null : state.vendors.find(v=>v.id===ui.modal.vendorId);
+  document.getElementById("vfCloseBtn").onclick = closeModal;
+
+  const nameInput = document.getElementById("vfName");
+  const saveBtn = document.getElementById("vfSaveBtn");
+  function refreshSaveEnabled(){ saveBtn.disabled = !nameInput.value.trim(); }
+  nameInput.oninput = refreshSaveEnabled;
+  refreshSaveEnabled();
+
+  const docInput = document.getElementById("vfDocInput");
+  if (docInput){
+    docInput.onchange = (e)=>{
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const isPdf = (file.type||"").indexOf("pdf")>-1;
+      const lbl = document.getElementById("vfDocLabel"); if (lbl) lbl.textContent = "Reading file…";
+      const r = new FileReader();
+      r.onload = ()=>{
+        ui.vendorQuoteDoc = { base64:r.result, mime:file.type||"application/octet-stream", name:file.name||("Quotation"+(isPdf?".pdf":"")) };
+        if (lbl) lbl.textContent = "Replace quotation";
+        const prev = document.getElementById("vfDocPreview");
+        if (prev) prev.innerHTML = '<div class="tiny muted" style="margin-top:8px">'+esc(file.name||"Quotation")+' — will upload when you tap Save.</div>';
+      };
+      r.readAsDataURL(file);
+    };
+  }
+
+  const quoteInput = document.getElementById("vfQuote");
+  const reviseWrap = document.getElementById("vfReviseWrap");
+  if (!isNew && (vendor.quote||0) > 0){
+    quoteInput.oninput = ()=>{
+      const changed = Number(quoteInput.value||0) !== (vendor.quote||0);
+      reviseWrap.style.display = changed ? "block" : "none";
+    };
+  }
+
+  saveBtn.onclick = async ()=>{
+    const name = nameInput.value.trim(); if (!name) return;
+    const trade = document.getElementById("vfTrade").value;
+    const q = Number(quoteInput.value)||0;
+    const advanceCapPct = Number(document.getElementById("vfAdvCap").value)||0;
+    const retentionPct = Number(document.getElementById("vfRetention").value)||0;
+    const gstPct = Number(document.getElementById("vfGst").value)||0;
+    const phone = document.getElementById("vfPhone").value.trim();
+    const reviseNote = document.getElementById("vfReviseNote") ? document.getElementById("vfReviseNote").value.trim() : "";
+
+    let quoteDocUrl = isNew ? "" : (vendor.quoteDocUrl||"");
+    if (ui.vendorQuoteDoc && state.settings.syncUrl){
+      saveBtn.disabled = true; saveBtn.innerHTML = icon("refresh",18)+" Uploading quotation…";
+      try{
+        const res = await cloudCall(state.settings.syncUrl, "uploadDoc",
+          { doc:{ base64:ui.vendorQuoteDoc.base64, mimeType:ui.vendorQuoteDoc.mime, name:ui.vendorQuoteDoc.name } });
+        if (res && res.url) quoteDocUrl = res.url;
+      }catch(err){ alert("Couldn't upload the quotation file — the agency will still be saved. You can attach it again later."); }
+    }
+
+    await update(n=>{
+      if (isNew){
+        n.vendors.push({ id:uid(), name, trade, quote:q, quoteHistory:[], advanceCapPct, retentionPct, gstPct, phone, note:"", quoteDocUrl });
+      }else{
+        const v = n.vendors.find(x=>x.id===vendor.id);
+        const quoteChanged = q !== (vendor.quote||0) && (vendor.quote||0) > 0;
+        if (quoteChanged){
+          v.quoteHistory = v.quoteHistory||[];
+          v.quoteHistory.unshift({ date: todayISO(), amount: q, note: reviseNote || "Revised" });
+        }
+        Object.assign(v, { name, trade, quote:q, advanceCapPct, retentionPct, gstPct, phone, quoteDocUrl });
+      }
+    });
+    pushVendors();
+    ui.vendorQuoteDoc = null;
+    ui.modal = null; render();
+  };
+
+  const delBtn = document.getElementById("vfDeleteBtn");
+  if (delBtn) delBtn.onclick = ()=>{
+    if (!confirm('Delete "'+vendor.name+'" and all its payments? This cannot be undone.')) return;
+    const ids = state.payments.filter(p=>p.vendorId===vendor.id).map(p=>p.id);
+    update(n=>{
+      n.vendors = n.vendors.filter(x=>x.id!==vendor.id);
+      n.payments = n.payments.filter(p=>p.vendorId!==vendor.id);
+    }).then(()=> pushVendors());
+    deletePaymentsCloud(ids);
+    ui.modal = null; render();
+  };
+}
+
+/* ======================== PAY FORM ========================= */
+function openPayModal(){
+  ui.payOverride = false; ui.payReceipt = null;
+  ui.modal = { type:"pay" };
+  render();
+}
+function computePayGuards(vendor, paid, advPaid, amt, ptype){
+  const quote = vendor.quote||0;
+  const overBy = (paid + amt) - quote;
+  const overQuote = quote>0 && overBy > 0.5;
+  const advCap = Math.round(quote*(vendor.advanceCapPct||0)/100);
+  const overAdvance = ptype==="Advance" && quote>0 && (advPaid+amt) > advCap+0.5;
+  const retentionHold = Math.round(quote*(vendor.retentionPct||0)/100);
+  const payableNow = Math.max(0, quote - retentionHold - paid);
+  const nearingRetention = quote>0 && retentionHold>0 && (paid+amt) > (quote-retentionHold) && !overQuote;
+  return { quote, overBy, overQuote, advCap, overAdvance, retentionHold, payableNow, nearingRetention };
+}
+function renderPayForm(d){
+  const hasVendors = state.vendors.length > 0;
+  const selVendorId = hasVendors ? state.vendors[0].id : "__NEW__";
+  const cloudOn = !!state.settings.syncUrl;
+
+  let html = '<div class="sheetHead"><h2>Add payment</h2><button class="iconbtn" id="payCloseBtn">'+icon("x",18)+'</button></div>';
+
+  html += '<div class="field"><span class="label">Agency</span><select class="control" id="payVendorSel">'+
+    state.vendors.map(v=>'<option value="'+v.id+'"'+(v.id===selVendorId?" selected":"")+'>'+esc(v.name)+' — '+esc(v.trade)+'</option>').join("")+
+    '<option value="__NEW__"'+(selVendorId==="__NEW__"?" selected":"")+'>+ Add new agency…</option>'+
+    '</select></div>';
+
+  html += '<div id="payNewVendorWrap" style="display:'+(selVendorId==="__NEW__"?"block":"none")+'">'+
+    '<div class="field"><span class="label">New agency name</span>'+
+    '<input class="control" id="payNewVendorName" placeholder="e.g. Sharma Plumbing"></div>'+
+    '<div class="two">'+
+      '<div><span class="label">Trade</span><select class="control" id="payNewVendorTrade">'+
+        TRADES.map(t=>'<option>'+esc(t)+'</option>').join("")+'</select></div>'+
+      '<div><span class="label">Quote ₹ <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
+      '<input class="control num" inputmode="decimal" id="payNewVendorQuote" placeholder="0"></div>'+
+    '</div>'+
+    '<div class="tiny muted" style="margin-top:4px">Creates a new agency. Set advance cap, retention &amp; GST later in the Agencies tab.</div></div>';
+
+  html += '<div class="field"><span class="label">Amount paid (₹)</span>'+
+    '<input class="control num" inputmode="decimal" id="payAmount" autofocus placeholder="0" style="font-size:22px;font-weight:700"></div>';
+
+  html += '<div id="payQuoteStatus" class="tiny num muted" style="margin-top:8px"></div>';
+  html += '<div id="payWarnings"></div>';
+
+  html += '<div class="field"><span class="label">Payment type</span><select class="control" id="payType">'+
+    state.settings.paymentTypes.map((t,i)=>'<option'+(i===1?" selected":"")+'>'+esc(t)+'</option>').join("")+'</select></div>';
+
+  html += '<div class="field"><span class="label">Invoice number <span style="text-transform:none;font-weight:400">(optional)</span></span>'+
+    '<input class="control" id="payInvoiceNo" placeholder="e.g. INV-2026-014"></div>';
+
+  html += '<div class="field"><span class="label">Mode of payment</span><select class="control" id="payMode">'+
+    state.settings.paymentModes.map(m=>'<option>'+esc(m.name)+'</option>').join("")+'</select></div>';
+  html += '<div id="payBankWrap" style="display:none"></div>';
+
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Floor</span><select class="control" id="payFloor"><option value="">— none —</option>'+
+    FLOORS.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("")+'</select></div>'+
+    '<div><span class="label">Room / area</span><select class="control" id="payRoom" disabled><option value="">pick floor</option></select></div></div>';
+
+  html += '<div class="field"><span class="label">Material or labour</span><div class="seg" id="payWorkSeg">'+
+    ["Material","Labour","Both"].map(w=>'<button type="button" data-work="'+w+'" class="'+(w==="Both"?"on":"")+'">'+w+'</button>').join("")+
+    '</div><input type="hidden" id="payWorkVal" value="Both"></div>';
+
+  html += '<div class="two" style="margin-top:14px">'+
+    '<div><span class="label">Date</span><input class="control" type="date" id="payDate" value="'+todayISO()+'"></div>'+
+    '<div><span class="label">Of which GST (₹)</span><input class="control num" inputmode="decimal" id="payGst" placeholder="optional"></div></div>';
+
+  html += '<div class="field"><span class="label">Note</span><input class="control" id="payNote" placeholder="e.g. 2nd slab steel, bill #142"></div>';
+
+  html += '<div class="field"><span class="label">Bill / quote photo'+(cloudOn?" (optional)":"")+'</span>';
+  if (cloudOn){
+    html += '<label class="btn ghost" style="margin-top:2px">'+icon("camera",16)+' <span id="receiptLabelText">Attach bill (photo or PDF)</span>'+
+      '<input type="file" accept="image/*,application/pdf" id="payReceiptInput" style="display:none"></label>'+
+      '<div id="receiptPreviewArea"></div>';
+  }else{
+    html += '<div class="tiny muted">Connect Cloud sync (More tab) to attach and store bill photos.</div>';
+  }
+  html += '</div>';
+
+  html += '<button class="btn" style="margin-top:20px" id="paySaveBtn">'+icon("check",18)+' Record payment</button>';
+  return html;
+}
+function updatePayWarnings(){
+  const sel = document.getElementById("payVendorSel").value;
+  const isNewVendor = sel === "__NEW__";
+  const newName = isNewVendor ? ((document.getElementById("payNewVendorName")||{}).value||"").trim() : "";
+  const vendor = isNewVendor
+    ? { id:"__NEW__", name:newName||"New agency", quote:Number((document.getElementById("payNewVendorQuote")||{}).value)||0,
+        advanceCapPct:10, retentionPct:0, gstPct:0 }
+    : state.vendors.find(v=>v.id===sel);
+  const d = computeDerived();
+  const paid = isNewVendor ? 0 : (d.paidByVendor[vendor.id]||0);
+  const advPaid = isNewVendor ? 0 : (d.advByVendor[vendor.id]||0);
+  const amt = Number(document.getElementById("payAmount").value)||0;
+  const ptype = document.getElementById("payType").value;
+  const g = computePayGuards(vendor, paid, advPaid, amt, ptype);
+
+  const statusEl = document.getElementById("payQuoteStatus");
+  statusEl.textContent = vendor.quote>0
+    ? "Paid so far "+rupee(paid)+" of "+rupee(vendor.quote)+" · "+rupee(Math.max(0,g.quote-paid))+" left against quote"
+    : "";
+
+  let warn = "";
+  if (g.overQuote){
+    warn += '<div class="warn" style="background:var(--redSoft);color:var(--red);margin-top:12px">'+icon("alert",16)+
+      '<div>This is '+rupee(g.overBy)+' <b>over the quote</b>. Blocked. To pay more, first revise '+esc(vendor.name)+'’s quote in the Agencies tab.</div></div>';
+  } else if (g.overAdvance){
+    warn += '<div class="warn" style="background:var(--amberSoft);color:var(--amber);margin-top:12px">'+icon("alert",16)+
+      '<div>Advance total would be '+rupee(advPaid+amt)+', above the '+vendor.advanceCapPct+'% cap ('+rupee(g.advCap)+').'+
+      '<label class="row tiny" style="margin-top:8px;font-weight:700"><input type="checkbox" id="payOverrideChk" style="width:16px;height:16px" '+
+      (ui.payOverride?"checked":"")+'> Pay anyway — I accept the higher advance</label></div></div>';
+  } else if (g.nearingRetention){
+    warn += '<div class="warn" style="background:var(--blueSoft);color:var(--blue);margin-top:12px">'+icon("shield",16)+
+      '<div>Heads up: keep '+rupee(g.retentionHold)+' retention held. Payable now without touching it: '+rupee(g.payableNow)+'.</div></div>';
+  }
+  document.getElementById("payWarnings").innerHTML = warn;
+  const chk = document.getElementById("payOverrideChk");
+  if (chk) chk.onchange = (e)=>{ ui.payOverride = e.target.checked; updatePayWarnings(); };
+
+  const mode = document.getElementById("payMode").value;
+  const needsBank = modeRequiresBank(mode);
+  const bankSel = document.getElementById("payBankSel");
+  const bankMissing = needsBank && (!bankSel || !bankSel.value);
+  if (bankMissing && !g.overQuote){
+    document.getElementById("payWarnings").innerHTML += '<div class="warn" style="background:var(--amberSoft);color:var(--amber);margin-top:12px">'+
+      icon("alert",16)+'<div>Pick which bank account this '+esc(mode)+' payment is going out from.</div></div>';
+  }
+
+  const nameMissing = isNewVendor && !newName;
+  const blocked = amt<=0 || g.overQuote || (g.overAdvance && !ui.payOverride) || bankMissing || nameMissing;
+  const saveBtn = document.getElementById("paySaveBtn");
+  saveBtn.disabled = blocked;
+  saveBtn.innerHTML = icon("check",18)+" "+(nameMissing?"Enter agency name":(g.overQuote?"Over quote — blocked":(bankMissing?"Choose a bank account":("Record "+(amt>0?rupee(amt):"payment")))));
+  return { vendor, amt, ptype, g, blocked, mode, bankAccount: bankSel?bankSel.value:"",
+    isNewVendor, newVendorName:newName,
+    newVendorTrade: isNewVendor ? ((document.getElementById("payNewVendorTrade")||{}).value||TRADES[0]) : "",
+    newVendorQuote: isNewVendor ? (Number((document.getElementById("payNewVendorQuote")||{}).value)||0) : 0 };
+}
+function modeRequiresBank(modeName){
+  const m = state.settings.paymentModes.find(x=>x.name===modeName);
+  return !!(m && m.bank);
+}
+function updatePayBankField(){
+  const wrap = document.getElementById("payBankWrap");
+  const mode = document.getElementById("payMode").value;
+  if (!modeRequiresBank(mode)){ wrap.style.display = "none"; wrap.innerHTML = ""; return; }
+  const accounts = state.settings.bankAccounts||[];
+  wrap.style.display = "block";
+  if (accounts.length===0){
+    wrap.innerHTML = '<div class="field"><span class="label">Bank account</span>'+
+      '<div class="tiny muted">No bank accounts saved yet — add one in <b>More → Bank accounts</b> to continue.</div></div>';
+  }else{
+    wrap.innerHTML = '<div class="field"><span class="label">Bank account</span>'+
+      '<select class="control" id="payBankSel"><option value="">— choose account —</option>'+
+      accounts.map(a=>'<option>'+esc(a)+'</option>').join("")+'</select></div>';
+    document.getElementById("payBankSel").addEventListener("change", updatePayWarnings);
+  }
+}
+function attachPayFormHandlers(d){
+  const vendorSel = document.getElementById("payVendorSel");
+  const newWrap = document.getElementById("payNewVendorWrap");
+  function toggleNewVendor(){
+    const isNew = vendorSel.value === "__NEW__";
+    if (newWrap) newWrap.style.display = isNew ? "block" : "none";
+    if (isNew){ const nm = document.getElementById("payNewVendorName"); if (nm && !nm.value) nm.focus(); }
+    updatePayWarnings();
+  }
+  vendorSel.addEventListener("change", toggleNewVendor);
+  ["payNewVendorName","payNewVendorQuote"].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updatePayWarnings);
+  });
+
+  document.getElementById("payMode").addEventListener("change", ()=>{ updatePayBankField(); updatePayWarnings(); });
+  updatePayBankField();
+
+  document.getElementById("payCloseBtn").onclick = closeModal;
+
+  const floorSel = document.getElementById("payFloor");
+  const roomSel = document.getElementById("payRoom");
+  floorSel.onchange = ()=>{
+    const f = FLOORS.find(x=>x.id===floorSel.value);
+    if (!f){ roomSel.disabled = true; roomSel.innerHTML = '<option value="">pick floor</option>'; }
+    else{
+      roomSel.disabled = false;
+      roomSel.innerHTML = '<option value="">— general —</option>'+f.rooms.map(r=>'<option>'+esc(r)+'</option>').join("");
+    }
+  };
+
+  document.querySelectorAll('#payWorkSeg [data-work]').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('#payWorkSeg [data-work]').forEach(b=>b.classList.remove("on"));
+      btn.classList.add("on");
+      document.getElementById("payWorkVal").value = btn.getAttribute("data-work");
+    };
+  });
+
+  ["payVendorSel","payAmount","payType"].forEach(id=>{
+    document.getElementById(id).addEventListener("input", updatePayWarnings);
+    document.getElementById(id).addEventListener("change", updatePayWarnings);
+  });
+
+  const receiptInput = document.getElementById("payReceiptInput");
+  if (receiptInput){
+    receiptInput.onchange = (e)=>{
+      const file = e.target.files && e.target.files[0]; if (!file) return;
+      const isPdf = (file.type||"").indexOf("pdf") > -1;
+      document.getElementById("receiptLabelText").textContent = "Reading file…";
+      const r = new FileReader();
+      r.onload = ()=>{
+        ui.payReceipt = { base64:r.result, mime:file.type||"image/jpeg" };
+        document.getElementById("receiptLabelText").textContent = "Replace file";
+        const thumb = isPdf
+          ? '<div style="width:56px;height:56px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--blue);background:var(--blueSoft)">PDF</div>'
+          : '<img src="'+r.result+'" alt="Bill preview" style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">';
+        document.getElementById("receiptPreviewArea").innerHTML =
+          '<div class="row" style="margin-top:10px;gap:10px">'+thumb+
+          '<div class="tiny muted">'+esc(file.name||(isPdf?"Bill.pdf":"Bill"))+' — saved to your Drive folder and linked to this entry.</div></div>';
+      };
+      r.readAsDataURL(file);
+    };
+  }
+
+  updatePayWarnings();
+
+  document.getElementById("paySaveBtn").onclick = async ()=>{
+    const check = updatePayWarnings();
+    if (check.blocked) return;
+
+    let vendorId = document.getElementById("payVendorSel").value;
+    let createdVendor = null;
+    if (vendorId === "__NEW__"){
+      const nm = (check.newVendorName||"").trim();
+      if (!nm){ const el=document.getElementById("payNewVendorName"); if(el) el.focus(); return; }
+      createdVendor = { id:uid(), name:nm, trade:check.newVendorTrade||TRADES[0], quote:check.newVendorQuote||0,
+        quoteHistory:[], advanceCapPct:10, retentionPct:0, gstPct:0, phone:"", note:"" };
+      state.vendors.push(createdVendor);
+      vendorId = createdVendor.id;
+    }
+
+    const id = uid();
+    const payment = {
+      id, vendorId,
+      amount: check.amt, mode: check.mode,
+      bankAccount: modeRequiresBank(check.mode) ? check.bankAccount : "",
+      type: check.ptype,
+      invoiceNumber: document.getElementById("payInvoiceNo").value.trim(),
+      floor: document.getElementById("payFloor").value,
+      room: document.getElementById("payRoom").value,
+      work: document.getElementById("payWorkVal").value,
+      gst: Number(document.getElementById("payGst").value)||0,
+      date: document.getElementById("payDate").value || todayISO(),
+      note: document.getElementById("payNote").value.trim(),
+      billRef: "",
+      synced: false
+    };
+    state.payments.push(payment);
+    await saveState();
+    if (createdVendor) pushVendors();
+    ui.modal = null; render();
+
+    if (state.settings.syncUrl){
+      const payload = ui.payReceipt
+        ? Object.assign({}, payment, { receiptBase64: ui.payReceipt.base64, receiptMimeType: ui.payReceipt.mime })
+        : payment;
+      const res = await pushPayment(payload);
+      const p = state.payments.find(x=>x.id===id);
+      if (p){
+        if (res) p.synced = true;            // confirmed on the sheet
+        if (res && res.billRef) p.billRef = res.billRef;
+        await saveState();
+        if (ui.tab==="ledger"||ui.tab==="home") render();
+      }
+    }
+    ui.payReceipt = null;
+  };
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(async function init(){
+  await loadState();
+  render();
+  if (state.settings.syncUrl){ pullAll(); }
+})();
+</script>
+</body>
+</html>
