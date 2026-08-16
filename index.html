@@ -472,7 +472,7 @@ function render(){
 /* ============================ HOME ============================ */
 function renderHome(d){
   const budget = state.settings.budget || 0;
-  const grand = d.totalQuote + d.contingency;
+  const totalAdv = Object.values(d.advByVendor).reduce((s,x)=>s+x,0);
   const usedPct = budget ? Math.min(100, Math.round(d.totalPaid/budget*100)) : 0;
   const floorTotals = FLOORS.map(f => ({ ...f, spent: d.byFloor[f.id]||0 }));
   const maxFloor = Math.max(1, ...floorTotals.map(f=>f.spent));
@@ -497,8 +497,8 @@ function renderHome(d){
   html += '<div class="heroGrid">'+
     '<div class="cell"><div class="k">Quoted (committed)</div><div class="v num">'+rupee(d.totalQuote)+'</div></div>'+
     '<div class="cell"><div class="k">Still to pay</div><div class="v num">'+rupee(d.outstanding)+'</div></div>'+
-    '<div class="cell"><div class="k">Contingency '+state.settings.contingencyPct+'%</div><div class="v num">'+rupee(d.contingency)+'</div></div>'+
-    '<div class="cell"><div class="k">Quote + buffer</div><div class="v num">'+rupee(grand)+'</div></div>'+
+    '<div class="cell"><div class="k">GST in payments</div><div class="v num">'+rupee(d.totalGst)+'</div></div>'+
+    '<div class="cell"><div class="k">Advances paid</div><div class="v num">'+rupee(totalAdv)+'</div></div>'+
   '</div></div>';
 
   if (alerts.length>0){
@@ -621,6 +621,7 @@ function renderLedger(d){
       html += '<div class="led"><div class="between"><div style="min-width:0"><div style="font-weight:600">'+esc(v?v.name:"—")+'</div>'+
         '<div class="tiny muted">'+esc(p.type)+' · '+esc(p.mode)+(p.bankAccount?" ("+esc(p.bankAccount)+")":"")+(fl?" · "+fl.code:"")+(p.room?" / "+esc(p.room):"")+(p.work&&p.work!=="Both"?" · "+esc(p.work):"")+(p.invoiceNumber?" · Inv# "+esc(p.invoiceNumber):"")+'</div>'+
         (p.note? '<div class="tiny" style="color:var(--faint);margin-top:2px">'+esc(p.note)+'</div>' : '')+
+        (p.gst>0? '<div class="tiny" style="color:var(--faint);margin-top:2px">GST '+rupee(p.gst)+(p.gstPct?" @"+p.gstPct+"%":"")+' · '+(p.gstBasis==="net"?"net + GST":"incl.")+'</div>' : '')+
         (p.billRef? '<a href="'+esc(p.billRef)+'" target="_blank" rel="noreferrer" class="tiny row" style="color:var(--blue);font-weight:600;margin-top:3px;text-decoration:none">'+icon("extLink",12)+' View bill</a>' : '')+
         '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0"><div class="num" style="font-weight:700">'+rupee(p.amount)+'</div>'+
         '<button class="delpay" data-delpay="'+p.id+'" aria-label="Delete payment" style="border:none;background:none;padding:2px 4px;color:var(--faint);cursor:pointer">'+icon("trash",15)+'</button>'+
@@ -697,11 +698,9 @@ function renderTypeList(){
 function renderMore(d){
   const connected = !!state.settings.syncUrl;
   return '<div class="wrap">'+
-    '<div class="card"><div class="label" style="margin-bottom:4px">Budget & buffer</div>'+
+    '<div class="card"><div class="label" style="margin-bottom:4px">Budget</div>'+
       '<div class="field"><span class="label">Overall budget (₹)</span>'+
       '<input class="control num" inputmode="decimal" id="budgetInput" value="'+esc(state.settings.budget||"")+'" placeholder="e.g. 25000000"></div>'+
-      '<div class="field"><span class="label">Contingency %</span>'+
-      '<input class="control num" inputmode="decimal" id="contInput" value="'+esc(state.settings.contingencyPct)+'"></div>'+
       '<button class="btn" style="margin-top:16px" id="saveSettingsBtn">'+icon("check",18)+' Save</button></div>'+
 
     '<div class="card"><div class="label" style="margin-bottom:8px">Bank accounts</div>'+
@@ -746,8 +745,7 @@ function renderMore(d){
 function attachMoreHandlers(d){
   document.getElementById("saveSettingsBtn").onclick = ()=>{
     const budget = Number(document.getElementById("budgetInput").value)||0;
-    const cont = Number(document.getElementById("contInput").value)||0;
-    update(n=>{ n.settings.budget=budget; n.settings.contingencyPct=cont; }).then(()=> pushVendors());
+    update(n=>{ n.settings.budget=budget; }).then(()=> pushVendors());
   };
   document.getElementById("addBankAccountBtn").onclick = ()=>{
     const input = document.getElementById("newBankAccountInput");
@@ -1101,9 +1099,16 @@ function renderPayForm(d){
     ["Material","Labour","Both"].map(w=>'<button type="button" data-work="'+w+'" class="'+(w==="Both"?"on":"")+'">'+w+'</button>').join("")+
     '</div><input type="hidden" id="payWorkVal" value="Both"></div>';
 
+  const defGstPct = hasVendors ? (state.vendors[0].gstPct||"") : "";
   html += '<div class="two" style="margin-top:14px">'+
     '<div><span class="label">Date</span><input class="control" type="date" id="payDate" value="'+todayISO()+'"></div>'+
-    '<div><span class="label">Of which GST (₹)</span><input class="control num" inputmode="decimal" id="payGst" placeholder="optional"></div></div>';
+    '<div><span class="label">GST %</span><input class="control num" inputmode="decimal" id="payGstPct" placeholder="0" value="'+defGstPct+'"></div></div>';
+
+  html += '<div class="field"><span class="label">Amount is</span><div class="seg" id="payGstBasisSeg">'+
+    '<button type="button" data-basis="gross" class="on">Gross · incl. GST</button>'+
+    '<button type="button" data-basis="net">Net · GST extra</button>'+
+    '</div><input type="hidden" id="payGstBasis" value="gross">'+
+    '<div class="tiny muted" id="payGstReadout" style="margin-top:7px"></div></div>';
 
   html += '<div class="field"><span class="label">Note</span><input class="control" id="payNote" placeholder="e.g. 2nd slab steel, bill #142"></div>';
 
@@ -1120,6 +1125,32 @@ function renderPayForm(d){
   html += '<button class="btn" style="margin-top:20px" id="paySaveBtn">'+icon("check",18)+' Record payment</button>';
   return html;
 }
+function computePayGst(){
+  const amt = Number((document.getElementById("payAmount")||{}).value)||0;
+  const pct = Number((document.getElementById("payGstPct")||{}).value)||0;
+  const basis = (document.getElementById("payGstBasis")||{}).value || "gross";
+  let gst=0, net=amt, gross=amt;
+  if (pct>0){
+    if (basis==="gross"){ net = amt/(1+pct/100); gst = amt-net; gross = amt; }
+    else { gst = amt*pct/100; gross = amt+gst; net = amt; }
+  }
+  return { amt, pct, basis, gst, net, gross };
+}
+function updateGstReadout(){
+  const el = document.getElementById("payGstReadout"); if (!el) return;
+  const g = computePayGst();
+  if (!g.amt || !g.pct){ el.textContent = "Enter a GST % to split out the tax portion."; return; }
+  if (g.basis==="gross") el.innerHTML = "Includes GST \u2248 <b>"+rupee(Math.round(g.gst))+"</b> \u00b7 net "+rupee(Math.round(g.net));
+  else el.innerHTML = "GST \u2248 <b>"+rupee(Math.round(g.gst))+"</b> extra \u2192 gross "+rupee(Math.round(g.gross));
+}
+function setGstFromVendor(){
+  const sel = (document.getElementById("payVendorSel")||{}).value;
+  const v = state.vendors.find(x=>x.id===sel);
+  const el = document.getElementById("payGstPct");
+  if (el && v && v.gstPct) el.value = v.gstPct;
+  updateGstReadout();
+}
+
 function updatePayWarnings(){
   const sel = document.getElementById("payVendorSel").value;
   const isNewVendor = sel === "__NEW__";
@@ -1235,6 +1266,18 @@ function attachPayFormHandlers(d){
     };
   });
 
+  document.querySelectorAll('#payGstBasisSeg [data-basis]').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('#payGstBasisSeg [data-basis]').forEach(b=>b.classList.remove("on"));
+      btn.classList.add("on");
+      document.getElementById("payGstBasis").value = btn.getAttribute("data-basis");
+      updateGstReadout();
+    };
+  });
+  ["payAmount","payGstPct"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input", updateGstReadout); });
+  { const vs=document.getElementById("payVendorSel"); if(vs) vs.addEventListener("change", setGstFromVendor); }
+  updateGstReadout();
+
   ["payVendorSel","payAmount","payType"].forEach(id=>{
     document.getElementById(id).addEventListener("input", updatePayWarnings);
     document.getElementById(id).addEventListener("change", updatePayWarnings);
@@ -1279,6 +1322,7 @@ function attachPayFormHandlers(d){
     }
 
     const id = uid();
+    const gstInfo = computePayGst();
     const payment = {
       id, vendorId,
       amount: check.amt, mode: check.mode,
@@ -1288,7 +1332,9 @@ function attachPayFormHandlers(d){
       floor: document.getElementById("payFloor").value,
       room: document.getElementById("payRoom").value,
       work: document.getElementById("payWorkVal").value,
-      gst: Number(document.getElementById("payGst").value)||0,
+      gst: Math.round(gstInfo.gst),
+      gstPct: gstInfo.pct,
+      gstBasis: gstInfo.basis,
       date: document.getElementById("payDate").value || todayISO(),
       note: document.getElementById("payNote").value.trim(),
       billRef: "",
