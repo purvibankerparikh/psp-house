@@ -380,8 +380,12 @@ function computeDerived(){
 
 /* ---------- cloud sync actions ---------- */
 function okSync(){ ui.syncStatus="ok"; ui.lastSynced=Date.now(); }
+let cloudPulled = false;   // true once this session has successfully pulled from the sheet
 async function pushVendors(url){
   url = url || state.settings.syncUrl; if (!url) return;
+  // Safety: never blank the sheet's vendors from an app that hasn't pulled yet.
+  // (A fresh/empty install must learn the sheet first; empty is only "real" after a pull.)
+  if (!state.vendors.length && !cloudPulled) return;
   ui.syncStatus="syncing"; if (ui.tab==="more") refreshSyncStatusUI();
   try{ await cloudCall(url,"saveVendors",{vendors:state.vendors, settings:settingsForCloud(state.settings)}); okSync(); }
   catch(e){ ui.syncStatus="error"; }
@@ -412,9 +416,15 @@ async function pullAll(url){
       try{ await cloudCall(url,"addPayment",{payment:p}); p.synced = true; }catch(e){}
     }
     state.payments = [...cloudPayments, ...pendingLocal];
-    if (cloud.vendors && cloud.vendors.length) state.vendors = cloud.vendors;
+    // Merge vendors by id: take the sheet's versions, and KEEP any local vendors
+    // that aren't on the sheet yet (so nothing you entered is silently dropped).
+    const cloudVendors = cloud.vendors || [];
+    const cloudVIds = new Set(cloudVendors.map(v=>v.id));
+    const localOnlyVendors = state.vendors.filter(v=> !cloudVIds.has(v.id));
+    state.vendors = [...cloudVendors, ...localOnlyVendors];
     state.settings = Object.assign({}, state.settings, settingsFromCloud(cloud.settings||{}), {syncUrl:url});
     await saveState();
+    cloudPulled = true;
     okSync();
     render();
   }catch(e){ ui.syncStatus="error"; if (ui.tab==="more") refreshSyncStatusUI(); }
@@ -423,8 +433,8 @@ async function connectCloud(rawUrl){
   const url = (rawUrl||"").trim(); if (!url) return;
   state.settings.syncUrl = url;
   await saveState();
-  await pushVendors(url);
-  await pullAll(url);
+  await pullAll(url);                              // PULL first — learn what's on the sheet
+  if (cloudPulled && state.vendors.length) await pushVendors(url);  // then contribute our (merged) vendors
   render();
 }
 
