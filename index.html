@@ -352,11 +352,16 @@ async function update(fn){
 }
 
 function computeDerived(){
-  const paidByVendor = {}, advByVendor = {}, byFloor = {}, byRoom = {};
+  const paidByVendor = {}, advByVendor = {}, basePaidByVendor = {}, baseAdvByVendor = {}, byFloor = {}, byRoom = {};
   let totalPaid = 0, totalGst = 0;
   for (const p of state.payments){
+    const base = p.amount - (p.gst||0);          // base = amount minus GST (GST kept separate from quote)
     paidByVendor[p.vendorId] = (paidByVendor[p.vendorId]||0) + p.amount;
-    if (p.type === "Advance") advByVendor[p.vendorId] = (advByVendor[p.vendorId]||0) + p.amount;
+    basePaidByVendor[p.vendorId] = (basePaidByVendor[p.vendorId]||0) + base;
+    if (p.type === "Advance"){
+      advByVendor[p.vendorId] = (advByVendor[p.vendorId]||0) + p.amount;
+      baseAdvByVendor[p.vendorId] = (baseAdvByVendor[p.vendorId]||0) + base;
+    }
     totalPaid += p.amount;
     totalGst += (p.gst||0);
     if (p.floor) byFloor[p.floor] = (byFloor[p.floor]||0) + p.amount;
@@ -365,12 +370,12 @@ function computeDerived(){
   }
   const totalQuote = state.vendors.reduce((s,v)=>s+(v.quote||0),0);
   const outstanding = state.vendors.reduce((s,v)=>{
-    const q=v.quote||0, pd=paidByVendor[v.id]||0; return s + Math.max(0, q-pd);
+    const q=v.quote||0, pd=basePaidByVendor[v.id]||0; return s + Math.max(0, q-pd);
   },0);
   const contingency = Math.round(totalQuote * (state.settings.contingencyPct/100));
   const today = todayISO();
   const spentToday = state.payments.filter(p=>p.date===today).reduce((s,p)=>s+p.amount,0);
-  return { paidByVendor, advByVendor, byFloor, byRoom, totalPaid, totalQuote, outstanding, contingency, spentToday, totalGst };
+  return { paidByVendor, advByVendor, basePaidByVendor, baseAdvByVendor, byFloor, byRoom, totalPaid, totalQuote, outstanding, contingency, spentToday, totalGst };
 }
 
 /* ---------- cloud sync actions ---------- */
@@ -478,7 +483,7 @@ function renderHome(d){
   const maxFloor = Math.max(1, ...floorTotals.map(f=>f.spent));
 
   const alerts = state.vendors.map(v => {
-    const paid = d.paidByVendor[v.id]||0;
+    const paid = d.basePaidByVendor[v.id]||0;
     const st = vendorStatus(paid, v.quote);
     return { v, paid, st };
   }).filter(x => x.st.key==="over" || x.st.key==="near");
@@ -547,7 +552,7 @@ function renderVendorListItems(d){
   const list = filteredVendorList();
   if (list.length===0) return '<div class="tiny muted" style="padding:6px 0">'+(ui.vendorQuery?"No agencies match.":"No agencies yet — add one below, or when recording a payment.")+'</div>';
   return list.map(v=>{
-    const paid = d.paidByVendor[v.id]||0;
+    const paid = d.basePaidByVendor[v.id]||0;
     const st = vendorStatus(paid, v.quote);
     const pct = v.quote ? Math.min(100, paid/v.quote*100) : 0;
     const left = Math.max(0,(v.quote||0)-paid);
@@ -844,10 +849,12 @@ function openVendorDetail(v){ ui.modal = { type:"vendorDetail", vendorId:v.id };
 function renderVendorDetail(d){
   const vendor = state.vendors.find(v=>v.id===ui.modal.vendorId);
   if (!vendor) return '<div class="sheetHead"><h2>Not found</h2></div>';
-  const paid = d.paidByVendor[vendor.id]||0;
-  const adv = d.advByVendor[vendor.id]||0;
-  const st = vendorStatus(paid, vendor.quote);
-  const left = Math.max(0,(vendor.quote||0)-paid);
+  const basePaid = d.basePaidByVendor[vendor.id]||0;
+  const cashPaid = d.paidByVendor[vendor.id]||0;
+  const adv = d.baseAdvByVendor[vendor.id]||0;
+  const vgst = state.payments.filter(p=>p.vendorId===vendor.id).reduce((s,p)=>s+(p.gst||0),0);
+  const st = vendorStatus(basePaid, vendor.quote);
+  const left = Math.max(0,(vendor.quote||0)-basePaid);
   const retentionHold = Math.round((vendor.quote||0)*(vendor.retentionPct||0)/100);
   const pays = state.payments.filter(p=>p.vendorId===vendor.id).sort((a,b)=> b.date.localeCompare(a.date));
 
@@ -859,9 +866,11 @@ function renderVendorDetail(d){
     '<div class="pill" style="background:'+st.soft+';color:'+st.color+'">'+st.label+'</div></div>'+
     '<div class="two" style="margin-top:12px">'+
     metric("Quote", rupee(vendor.quote))+
-    metric("Paid", rupee(paid))+
+    metric("Paid (ex-GST)", rupee(basePaid))+
     metric("Outstanding", rupee(left), true, left>0?"var(--blue)":"var(--green)")+
-    metric("Advance given", rupee(adv))+
+    metric("GST paid", rupee(vgst))+
+    metric("Advance", rupee(adv))+
+    metric("Total cash paid", rupee(cashPaid))+
     '</div>';
   if (retentionHold>0){
     html += '<div class="warn" style="background:var(--blueSoft);color:var(--blue);margin-top:12px">'+icon("shield",16)+
@@ -1175,21 +1184,23 @@ function updatePayWarnings(){
         advanceCapPct:10, retentionPct:0, gstPct:0 }
     : state.vendors.find(v=>v.id===sel);
   const d = computeDerived();
-  let paid = isNewVendor ? 0 : (d.paidByVendor[vendor.id]||0);
-  let advPaid = isNewVendor ? 0 : (d.advByVendor[vendor.id]||0);
+  let paid = isNewVendor ? 0 : (d.basePaidByVendor[vendor.id]||0);
+  let advPaid = isNewVendor ? 0 : (d.baseAdvByVendor[vendor.id]||0);
   const editId = ui.modal.editId || null;
   const ep = editId ? state.payments.find(p=>p.id===editId) : null;
   if (ep && !isNewVendor && ep.vendorId===vendor.id){
-    paid -= ep.amount;                                  // don't count the row we're editing
-    if (ep.type==="Advance") advPaid -= ep.amount;
+    const epBase = ep.amount - (ep.gst||0);
+    paid -= epBase;                                    // don't count the row we're editing
+    if (ep.type==="Advance") advPaid -= epBase;
   }
   const amt = Number(document.getElementById("payAmount").value)||0;
+  const baseAmt = computePayGst().net;                 // GST-excluded portion consumes the quote
   const ptype = document.getElementById("payType").value;
-  const g = computePayGuards(vendor, paid, advPaid, amt, ptype);
+  const g = computePayGuards(vendor, paid, advPaid, baseAmt, ptype);
 
   const statusEl = document.getElementById("payQuoteStatus");
   statusEl.textContent = vendor.quote>0
-    ? "Paid so far "+rupee(paid)+" of "+rupee(vendor.quote)+" · "+rupee(Math.max(0,g.quote-paid))+" left against quote"
+    ? "Paid so far "+rupee(paid)+" of "+rupee(vendor.quote)+" (ex-GST) · "+rupee(Math.max(0,g.quote-paid))+" left against quote"
     : "";
 
   let warn = "";
@@ -1198,7 +1209,7 @@ function updatePayWarnings(){
       '<div>This is '+rupee(g.overBy)+' <b>over the quote</b>. Blocked. To pay more, first revise '+esc(vendor.name)+'’s quote in the Agencies tab.</div></div>';
   } else if (g.overAdvance){
     warn += '<div class="warn" style="background:var(--amberSoft);color:var(--amber);margin-top:12px">'+icon("alert",16)+
-      '<div>Advance total would be '+rupee(advPaid+amt)+', above the '+vendor.advanceCapPct+'% cap ('+rupee(g.advCap)+').'+
+      '<div>Advance total would be '+rupee(advPaid+baseAmt)+', above the '+vendor.advanceCapPct+'% cap ('+rupee(g.advCap)+').'+
       '<label class="row tiny" style="margin-top:8px;font-weight:700"><input type="checkbox" id="payOverrideChk" style="width:16px;height:16px" '+
       (ui.payOverride?"checked":"")+'> Pay anyway — I accept the higher advance</label></div></div>';
   } else if (g.nearingRetention){
