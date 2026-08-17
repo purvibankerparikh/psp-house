@@ -422,7 +422,17 @@ async function pullAll(url){
     const cloudVIds = new Set(cloudVendors.map(v=>v.id));
     const localOnlyVendors = state.vendors.filter(v=> !cloudVIds.has(v.id));
     state.vendors = [...cloudVendors, ...localOnlyVendors];
-    state.settings = Object.assign({}, state.settings, settingsFromCloud(cloud.settings||{}), {syncUrl:url});
+    const cloudS = settingsFromCloud(cloud.settings||{});
+    const uniq = (arr)=>{ const seen=new Set(), out=[]; (arr||[]).forEach(x=>{ if(!seen.has(x)){seen.add(x);out.push(x);} }); return out; };
+    const uniqModes = (arr)=>{ const seen=new Set(), out=[]; (arr||[]).forEach(m=>{ const n=m&&m.name; if(n&&!seen.has(n)){seen.add(n);out.push(m);} }); return out; };
+    state.settings = Object.assign({}, state.settings, cloudS, {
+      syncUrl: url,
+      // Union list-settings with what's on this device so a custom entry
+      // (e.g. an added payment type) is never dropped by another phone's sync.
+      bankAccounts: uniq([...(cloudS.bankAccounts||[]), ...(state.settings.bankAccounts||[])]),
+      paymentTypes: uniq([...(cloudS.paymentTypes||[]), ...(state.settings.paymentTypes||[])]),
+      paymentModes: uniqModes([...(cloudS.paymentModes||[]), ...(state.settings.paymentModes||[])])
+    });
     await saveState();
     cloudPulled = true;
     okSync();
