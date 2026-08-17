@@ -60,12 +60,8 @@ html,body{margin:0;padding:0;background:var(--paper);}
 .hero .cell .v { font-size:16px; font-weight:600; margin-top:3px; }
 
 /* building section signature */
-.floorRow { display:grid; grid-template-columns:58px 1fr auto; align-items:center; gap:10px;
-  padding:10px 0; border-top:1px dashed var(--line); }
+.floorRow { display:block; padding:11px 0; border-top:1px dashed var(--line); }
 .floorRow:first-child { border-top:none; }
-.lvl { text-align:right; }
-.lvl .code { font-size:13px; font-weight:800; letter-spacing:.02em; }
-.lvl .mm { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:10px; color:var(--faint); }
 .bar { height:8px; border-radius:6px; background:var(--line2); overflow:hidden; box-shadow:inset 0 0 0 1px rgba(20,22,26,.02); }
 .bar > span { display:block; height:100%; border-radius:6px; }
 
@@ -539,9 +535,11 @@ function renderHome(d){
     '<div class="label">Spend by floor</div><button class="tiny" id="homeToLedger" style="color:var(--blue);font-weight:700">View ledger '+icon("chevron",11)+'</button></div>';
   floorTotals.forEach(f=>{
     const pct = Math.max(f.spent?6:0, f.spent/maxFloor*100);
-    html += '<div class="floorRow"><div class="lvl"><div class="code">'+f.code+'</div><div class="mm num">'+f.level+'</div></div>'+
+    html += '<div class="floorRow">'+
+      '<div class="between" style="margin-bottom:7px"><div style="font-weight:700;font-size:13px">'+esc(f.name)+'</div>'+
+      '<div class="num tiny" style="font-weight:600">'+rupee(f.spent)+'</div></div>'+
       '<div class="bar"><span style="width:'+pct+'%;background:'+(f.id==="common"?"var(--blue)":"var(--ink)")+'"></span></div>'+
-      '<div class="num tiny" style="min-width:64px;text-align:right;font-weight:600">'+rupee(f.spent)+'</div></div>';
+      '</div>';
   });
   html += '</div>';
 
